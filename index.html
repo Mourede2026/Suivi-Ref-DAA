@@ -1557,7 +1557,7 @@ form#survey-form {margin-top:36px;}
     <section id="view-depAmb" class="view">
       <div class="panel">
         <h2>Nouvelle dépense — ambulances</h2>
-        <form class="inline-form" id="formDepAmb" novalidate>
+        <form class="inline-form" id="formDepAmb">
           <div><label>Date</label><input type="date" name="date" required></div>
           <div style="grid-column:span 2;"><label>Libellé de la dépense</label><input type="text" name="libelle" placeholder="Ex. Carburant ambulance Djidja - Juillet" required></div>
           <div><label>Montant (FCFA)</label><input type="number" name="montant" min="0" step="1" required></div>
@@ -1576,7 +1576,7 @@ form#survey-form {margin-top:36px;}
     <section id="view-depRH" class="view">
       <div class="panel">
         <h2>Nouvelle dépense — RH, primes &amp; frais corporate</h2>
-        <form class="inline-form" id="formDepRH" novalidate>
+        <form class="inline-form" id="formDepRH">
           <div><label>Date</label><input type="date" name="date" required></div>
           <div style="grid-column:span 2;"><label>Libellé de la dépense</label><input type="text" name="libelle" placeholder="Ex. Prime superviseurs référence - Juillet" required></div>
           <div>
@@ -2827,19 +2827,12 @@ form#survey-form {margin-top:36px;}
   el('formDepAmb').addEventListener('submit', async e=>{
     e.preventDefault();
     const fd = new FormData(e.target); const btn = e.target.querySelector('button[type=submit]');
-    const date = fd.get('date'), libelle = (fd.get('libelle')||'').trim(), montant = fd.get('montant');
-    if(!date || !libelle || montant === '' || montant === null){
-      showBanner('Veuillez renseigner la date, le libellé et le montant avant d\'ajouter la dépense.', 'error');
-      return;
-    }
     btn.disabled = true; btn.textContent = 'Ajout...';
     try{
-      const res = await apiPost('addDepenseAmbulance', { date, libelle, montant });
-      STATE.data = res.data;
-      e.target.reset();
+      const res = await apiPost('addDepenseAmbulance', { date: fd.get('date'), libelle: fd.get('libelle'), montant: fd.get('montant') });
+      STATE.data = res.data; renderAll(); e.target.reset();
       showBanner('Dépense ajoutée.', 'info'); setTimeout(hideBanner, 2000);
-      try{ renderAll(); }catch(renderErr){ console.error('Erreur d\'affichage après ajout :', renderErr); }
-    }catch(err){ console.error(err); showBanner("Échec de l'ajout : " + err.message, 'error'); }
+    }catch(err){ showBanner("Échec de l'ajout : " + err.message, 'error'); }
     finally{ btn.disabled = false; btn.textContent = 'Ajouter la dépense'; }
   });
 
@@ -2897,19 +2890,12 @@ form#survey-form {margin-top:36px;}
   el('formDepRH').addEventListener('submit', async e=>{
     e.preventDefault();
     const fd = new FormData(e.target); const btn = e.target.querySelector('button[type=submit]');
-    const date = fd.get('date'), libelle = (fd.get('libelle')||'').trim(), categorie = fd.get('categorie'), montant = fd.get('montant');
-    if(!date || !libelle || !categorie || montant === '' || montant === null){
-      showBanner('Veuillez renseigner la date, le libellé, la catégorie et le montant avant d\'ajouter la dépense.', 'error');
-      return;
-    }
     btn.disabled = true; btn.textContent = 'Ajout...';
     try{
-      const res = await apiPost('addDepenseRH', { date, libelle, categorie, montant });
-      STATE.data = res.data;
-      e.target.reset();
+      const res = await apiPost('addDepenseRH', { date: fd.get('date'), libelle: fd.get('libelle'), categorie: fd.get('categorie'), montant: fd.get('montant') });
+      STATE.data = res.data; renderAll(); e.target.reset();
       showBanner('Dépense ajoutée.', 'info'); setTimeout(hideBanner, 2000);
-      try{ renderAll(); }catch(renderErr){ console.error('Erreur d\'affichage après ajout :', renderErr); }
-    }catch(err){ console.error(err); showBanner("Échec de l'ajout : " + err.message, 'error'); }
+    }catch(err){ showBanner("Échec de l'ajout : " + err.message, 'error'); }
     finally{ btn.disabled = false; btn.textContent = 'Ajouter la dépense'; }
   });
 
