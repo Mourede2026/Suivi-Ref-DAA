@@ -133,6 +133,7 @@
   .badge.role-admin{background:var(--gold-soft);color:#8a5c0f;}
   .badge.role-gest{background:var(--teal-100);color:var(--teal-800);}
   .badge.role-agent{background:var(--green-soft);color:var(--green);}
+  .badge.role-consult{background:#eee;color:var(--ink-soft);}
   .badge.ce-oui{background:var(--green-soft);color:var(--green);}
   .badge.ce-non{background:var(--red-soft);color:var(--red);}
   .badge.ce-attente{background:var(--gold-soft);color:#8a5c0f;}
@@ -2083,14 +2084,19 @@ form#survey-form {margin-top:36px;}
   const PCT = v => (isFinite(v) ? (v*100).toFixed(1) : '0.0') + ' %';
   const money = v => FCFA(v || 0) + ' FCFA';
   const escapeAttr = v => String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  const ROLE_LABELS = { administrateur:'Administrateur', gestionnaire:'Gestionnaire matière', agent_collecte:'Agent de collecte' };
-  const ROLE_BADGE = { administrateur:'role-admin', gestionnaire:'role-gest', agent_collecte:'role-agent' };
+  const ROLE_LABELS = { administrateur:'Administrateur', gestionnaire:'Gestionnaire matière', agent_collecte:'Agent de collecte', consultation:'Consultation (lecture seule)' };
+  const ROLE_BADGE = { administrateur:'role-admin', gestionnaire:'role-gest', agent_collecte:'role-agent', consultation:'role-consult' };
 
   // Onglets visibles par rôle
   const TABS_BY_ROLE = {
     administrateur: ['dashboard','ambulances','depAmb','depRH','recettes','contreEval','satisfaction','evalRefAnalyse','users'],
     gestionnaire: ['dashboard','depAmb','depRH','contreEval'],
-    agent_collecte: ['ambulances','recettes','evalRef']
+    agent_collecte: ['ambulances','recettes','evalRef'],
+    // Rôle lecture seule : accès au tableau de bord et aux analyses (satisfaction,
+    // évaluation des fiches de référence), sans aucun onglet contenant une action
+    // d'écriture (le backend la refuserait de toute façon, mais autant ne pas
+    // afficher de formulaires ou boutons inutilisables).
+    consultation: ['dashboard','satisfaction','evalRefAnalyse']
   };
 
   const STATE = { token: null, session: null, data: null };
@@ -3822,6 +3828,10 @@ form#survey-form {margin-top:36px;}
       renderContreEval();
     } else if(role === 'agent_collecte'){
       renderAmbulancesAgent(d.refAmbulances, d.communes); renderRecettes();
+    } else if(role === 'consultation'){
+      renderDashboard(d);
+      renderSatisfaction(d);
+      renderEvalRefAnalyseAll(d);
     }
   }
 
