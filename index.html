@@ -64,6 +64,19 @@
   .login-error.show{display:block;}
   .login-hint{font-size:.72rem;color:var(--ink-soft);margin-top:18px;text-align:center;}
 
+  /* ---------- Mode lecture seule (compte "Consultation", sans identifiants) ---------- */
+  /* Masque tout ce qui écrit des données. Le serveur (Apps Script) refuse de toute façon
+     ces actions pour ce rôle : ceci est une couche d'ergonomie, pas la seule protection. */
+  body.read-only-mode #formDepAmb, body.read-only-mode #formDepRH, body.read-only-mode #formCreateUser,
+  body.read-only-mode .row-actions, body.read-only-mode button[data-action],
+  body.read-only-mode .toggle-yn, body.read-only-mode .photo-label,
+  body.read-only-mode #btnChangePw, body.read-only-mode #btnSaveAmbCommune,
+  body.read-only-mode .amb-btn, body.read-only-mode #ambCommuneTabs{ display:none !important; }
+  body.read-only-mode .cell-input, body.read-only-mode input[type="file"]{
+    pointer-events:none; background:#f2f4f3; opacity:.85;
+  }
+  .role-consult{background:var(--teal-100);color:var(--teal-800);}
+
   /* ---------- App shell ---------- */
   #appShell{display:none;}
   #appShell.active{display:block;}
@@ -133,7 +146,6 @@
   .badge.role-admin{background:var(--gold-soft);color:#8a5c0f;}
   .badge.role-gest{background:var(--teal-100);color:var(--teal-800);}
   .badge.role-agent{background:var(--green-soft);color:var(--green);}
-  .badge.role-consult{background:#eee;color:var(--ink-soft);}
   .badge.ce-oui{background:var(--green-soft);color:var(--green);}
   .badge.ce-non{background:var(--red-soft);color:var(--red);}
   .badge.ce-attente{background:var(--gold-soft);color:#8a5c0f;}
@@ -1457,6 +1469,27 @@ form#survey-form {margin-top:36px;}
         <p class="note">Hypothèse : les dépenses globales observées et les recettes cumulées portent sur la même période et sont supposées constantes dans le temps.</p>
       </div>
       <div class="panel">
+        <h2>Taux d'exploitation &amp; dépense attribuable, par ambulance</h2>
+        <p class="note">Taux d'exploitation = part de chaque ambulance dans le nombre total de références effectuées (toutes ambulances confondues). Dépense attribuable = ce taux appliqué au total des dépenses ambulances, en supposant ces frais partagés au prorata de l'usage réel de chaque véhicule.</p>
+        <div class="grid-2">
+          <div><h3 style="margin-top:10px;">Taux d'exploitation</h3><div class="chart-wrap"><canvas id="chartAmbTaux"></canvas></div></div>
+          <div><h3 style="margin-top:10px;">Dépense attribuable</h3><div class="chart-wrap"><canvas id="chartAmbDepense"></canvas></div></div>
+        </div>
+        <div class="table-scroll">
+          <table id="tblAmbExploit"><thead><tr><th>Ambulance</th><th class="num">Nb. références</th><th class="num">Taux d'exploitation</th><th class="num">Dépense attribuable</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Dépenses par catégorie, affectées par commune</h2>
+        <p class="note">Pour chaque catégorie de dépense (ambulances, salaires, primes, frais corporate), affectation à chaque commune au prorata de la somme des coefficients de sollicitation de ses centres. Le détail centre par centre (chaque formation sanitaire) figure dans le tableau « Détail par centre » ci-dessus, colonnes « dont Ambulances / Salaires / Primes / Frais corp. ».</p>
+        <div class="chart-wrap"><canvas id="chartDepCategorieCommune"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Comparaison par centre : dépense affectée vs versement 3%</h2>
+        <p class="note">Dépense affectée = coefficient de sollicitation du centre × dépenses globales de la ZS. Versement = valeur retenue (contre-évaluée le cas échéant) des 3% reversés par le centre.</p>
+        <div class="chart-wrap"><canvas id="chartCentreComparaison"></canvas></div>
+      </div>
+      <div class="panel">
         <h2>Satisfaction — aperçu rapide</h2>
         <p class="note">Aperçu synthétique de la satisfaction des chefs de poste et des agents RCR. Ces indicateurs se recalculent automatiquement à chaque actualisation des données (bouton « ↻ Actualiser » ou changement d'onglet), y compris lorsque de nouveaux sites (comme Agbangnizoun centre) sont ajoutés aux questionnaires.</p>
         <div id="dashSatKpis" class="kpi-grid"></div>
@@ -1465,8 +1498,21 @@ form#survey-form {margin-top:36px;}
 
     <!-- AMBULANCES -->
     <section id="view-ambulances" class="view">
-      <!-- Vue administrateur : tableau complet -->
-      <div class="panel" id="ambulancesAdminPanel">
+      <!-- Vue administrateur / consultation : répartition par ambulance + tableau complet -->
+      <div id="ambulancesAdminPanel">
+      <div class="panel">
+        <h2>Taux d'exploitation &amp; dépense attribuable, par ambulance</h2>
+        <p class="note">Taux d'exploitation = part de chaque ambulance dans le nombre total de références effectuées (toutes ambulances confondues). Dépense attribuable = ce taux appliqué au total des dépenses ambulances (carburant, entretien...), en supposant ces frais partagés au prorata de l'usage réel de chaque véhicule.</p>
+        <div class="grid-2">
+          <div><h3 style="margin-top:10px;">Taux d'exploitation</h3><div class="chart-wrap"><canvas id="chartAmbTauxTab"></canvas></div></div>
+          <div><h3 style="margin-top:10px;">Dépense attribuable</h3><div class="chart-wrap"><canvas id="chartAmbDepenseTab"></canvas></div></div>
+        </div>
+        <div class="table-scroll">
+          <table id="tblAmbExploitTab"><thead><tr><th>Ambulance</th><th class="num">Nb. références</th><th class="num">Taux d'exploitation</th><th class="num">Dépense attribuable</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="panel">
         <h2>Références par centre et par ambulance — cumul de la période</h2>
         <p class="note">Modifiez les cellules puis cliquez sur « Enregistrer » sur la ligne du centre concerné.</p>
         <div class="table-scroll">
@@ -1479,6 +1525,7 @@ form#survey-form {margin-top:36px;}
             <tbody></tbody>
           </table>
         </div>
+      </div>
       </div>
 
       <!-- Vue agent de collecte : parcours guidé -->
@@ -1510,7 +1557,7 @@ form#survey-form {margin-top:36px;}
     <section id="view-depAmb" class="view">
       <div class="panel">
         <h2>Nouvelle dépense — ambulances</h2>
-        <form class="inline-form" id="formDepAmb">
+        <form class="inline-form" id="formDepAmb" novalidate>
           <div><label>Date</label><input type="date" name="date" required></div>
           <div style="grid-column:span 2;"><label>Libellé de la dépense</label><input type="text" name="libelle" placeholder="Ex. Carburant ambulance Djidja - Juillet" required></div>
           <div><label>Montant (FCFA)</label><input type="number" name="montant" min="0" step="1" required></div>
@@ -1529,7 +1576,7 @@ form#survey-form {margin-top:36px;}
     <section id="view-depRH" class="view">
       <div class="panel">
         <h2>Nouvelle dépense — RH, primes &amp; frais corporate</h2>
-        <form class="inline-form" id="formDepRH">
+        <form class="inline-form" id="formDepRH" novalidate>
           <div><label>Date</label><input type="date" name="date" required></div>
           <div style="grid-column:span 2;"><label>Libellé de la dépense</label><input type="text" name="libelle" placeholder="Ex. Prime superviseurs référence - Juillet" required></div>
           <div>
@@ -1619,7 +1666,7 @@ form#survey-form {margin-top:36px;}
 </div>
 </section>
 
-<script id="evalRefSurveyData" type="application/json">{"survey": [{"type": "note", "name": "Bonjour_Concernant_ou_INCONNU_Merci", "label": "Bonjour, Concernant l’évaluation de la qualité des fiches de référence et contre‑référence, merci de cocher “OUI” uniquement lorsque l’information est effectivement retrouvée dans la fiche de référence. Dans le cas contraire, cochez “NON” ou \"INCONNU\". Merci.", "required": "false", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_multiple xu1fl42", "name": "Parties_du_Support_disponibles", "label": "Parties du Support disponibles", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_hk51e79", "label": "EVALUATION DE LA FICHE DE REFERENCE", "required": "true", "relevant": "selected(${Parties_du_Support_disponibles}, 'partie_reference')", "constraint": null, "choice_filter": null}, {"type": "select_one cd1ge15", "name": "Num_ro_de_r_f_rence_pr_cis", "label": "Numéro de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one zd0yi82", "name": "Num_ro_de_la_Fiche_de_r_f_rence_pr_cis", "label": "Numéro de la Fiche de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one wi7un85", "name": "Centre_d_accueil_alert_", "label": "Centre d'accueil alerté ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one pn9bi96", "name": "Date_mentionn_e", "label": "Date mentionnée?", "required": "true", "relevant": "${Centre_d_accueil_alert_} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "date", "name": "Pr_ciser_la_date", "label": "Préciser la date", "required": "true", "relevant": "${Date_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one pn9bi96", "name": "Heure_mentionn_e", "label": "Heure mentionnée?", "required": "true", "relevant": "${Centre_d_accueil_alert_} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "time", "name": "Pr_ciser_l_heure", "label": "Préciser l'heure", "required": "true", "relevant": "${Heure_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one fs0lr62", "name": "Standard_contact_", "label": "Standard contacté ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one pp1xz91", "name": "Formation_sanitaire_pr_cis_e", "label": "Formation sanitaire précisée?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one formations_zone", "name": "Si_oui_pr_ciser_002", "label": "Formation sanitaire de provenance", "required": "true", "relevant": "${Formation_sanitaire_pr_cis_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Preciser_autre_formation_002", "label": "Préciser le centre", "required": "true", "relevant": "${Si_oui_pr_ciser_002} = 'autres'", "constraint": null, "choice_filter": null}, {"type": "select_one ll4jl67", "name": "Date_d_admission_pr_cis_e", "label": "Date d'admission précisée?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "date", "name": "Si_oui_pr_ciser_la_date", "label": "Si oui, préciser la date", "required": "true", "relevant": "${Date_d_admission_pr_cis_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one ll4jl67", "name": "Heure_d_admission_pr_cis_e", "label": "Heure d'admission précisée?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Si_oui_pr_ciser_l_heure", "label": "Si oui, préciser l'heure", "required": "true", "relevant": "${Heure_d_admission_pr_cis_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_qi0vr17", "label": "Personne qui réfère", "required": "false", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one ge07q77", "name": "Nom_de_la_personne_qui_r_f_re", "label": "Nom de la personne qui réfère", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fi4gj23", "name": "Fonction_de_la_personne_qui_r_", "label": "Fonction de la personne qui réfère", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one bd2zh58", "name": "Si_oui_pr_ciser_003", "label": "Si oui, préciser", "required": "true", "relevant": "${Fonction_de_la_personne_qui_r_} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one wd19x48", "name": "Nom_et_pr_nom_du_de_la_patient_e_pr_cis", "label": "Nom et prénom du/de la patient(e) précisé?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one wd19x48", "name": "Nom_et_pr_nom_du_de_la_patient", "label": "Age du patient mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fw5kl23", "name": "Age_pr_cis_", "label": "Age précisé ?", "required": "true", "relevant": "${Nom_et_pr_nom_du_de_la_patient} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "integer", "name": "Pr_ciser_l_ge_en_mois", "label": "Préciser l'âge (en mois)", "required": "true", "relevant": "${Age_pr_cis_} = 'oui'", "constraint": ". <= 59", "choice_filter": null}, {"type": "integer", "name": "Pr_ciser_l_ge_en_ann_e", "label": "Préciser l'âge (en année)", "required": "true", "relevant": "${Age_pr_cis_} = 'non'", "constraint": ". >= 5", "choice_filter": null}, {"type": "select_one am46u77", "name": "Sexe_pr_cis", "label": "Sexe précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one jt3kq16", "name": "Si_oui_pr_ciser_004", "label": "Si oui, préciser", "required": "true", "relevant": "${Sexe_pr_cis} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Ethnie_pr_cis_e", "label": "Ethnie précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e", "label": "Commune précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one Commune", "name": "Commune", "label": "Commune", "required": "true", "relevant": "${Commune_pr_cis_e} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_autre_commune", "label": "Préciser autre commune", "required": "true", "relevant": "${Commune} = 'autres'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001", "label": "Arrondissement précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one Arrondissement", "name": "Arrondissement", "label": "Arrondissement", "required": "false", "relevant": "${Commune_pr_cis_e_001} = 'option_1'", "constraint": null, "choice_filter": "Commune=${Commune}"}, {"type": "text", "name": "Pr_ciser_autre_Arrondissement", "label": "Préciser autre Arrondissement", "required": "true", "relevant": "${Commune_pr_cis_e_001} = 'option_1' and ${Commune} = 'autres'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001", "label": "Village de provenance précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "text", "name": "Si_oui_pr_cis", "label": "Si oui, précisé", "required": "true", "relevant": "${Commune_pr_cis_e_001_001} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001", "label": "Personne contact précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_001", "label": "Numéro de téléphone précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0", "label": "Centre de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fy6sn75", "name": "Si_oui_pr_ciser_le_centre_de_r_f_rence", "label": "Si oui, préciser le centre de référence", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_001", "label": "Service de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one jr4ir02", "name": "Si_oui_pr_ciser_le_service_de_r_f_rence", "label": "Si oui, préciser le service de référence", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_001} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_002", "label": "Type de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one yc4mr58", "name": "Si_oui_pr_ciser_le_type_de_r_f_rece", "label": "Si oui, préciser le type de référece", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_002} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_003", "label": "Raison de référence précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one tc6wi16", "name": "Si_oui_pr_ciser_la_raison", "label": "Si oui, préciser la raison", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_003} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_la_raison", "label": "Préciser la raison", "required": "true", "relevant": "${Si_oui_pr_ciser_la_raison} = 'autres_raisons'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_004", "label": "Diagnostic évoqué précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_005", "label": "Traitements faits remplis", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_006", "label": "Observations remplies", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_007", "label": "Personne ayant accompagnée précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fc7op21", "name": "Si_oui_pr_ciser_005", "label": "Si oui, préciser", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_007} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_008", "label": "Moyen de transport utilisé précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one hv1xk16", "name": "Si_oui_pr_ciser", "label": "Si oui, préciser", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_008} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_le_moyen_de_transport_utilis", "label": "Préciser le moyen de transport utilisé", "required": "true", "relevant": "${Si_oui_pr_ciser} = 'non_accompagn'", "constraint": null, "choice_filter": null}, {"type": "select_one ks7du86", "name": "Date_de_r_f_rence_mentionn_e", "label": "Date de référence mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "date", "name": "Si_oui_pr_ciser_006", "label": "Si oui, préciser", "required": "true", "relevant": "${Date_de_r_f_rence_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one hm19x01", "name": "Heure_d_arriv_e_de_l_ambulance", "label": "Heure d'arrivée de l'ambulance précisé mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Pr_ciser_l_heure_001", "label": "Préciser l'heure", "required": "true", "relevant": "${Heure_d_arriv_e_de_l_ambulance} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one lz8yk60", "name": "Heure_de_d_part_mentionn_e", "label": "Heure de départ mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Pr_ciser_l_heure_002", "label": "Préciser l'heure", "required": "true", "relevant": "${Heure_de_d_part_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one wn8fs96", "name": "Signature", "label": "Signature", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one uz4rd36", "name": "Nom_de_l_agent_mentionn", "label": "Nom de l'agent mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one pj6fl90", "name": "Cache_du_service", "label": "Cache du service?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_hc6hy14", "label": "EVALUATION DE LA CONTRE-REFERENCE", "required": "true", "relevant": "selected(${Parties_du_Support_disponibles}, 'partie_contre_reference')", "constraint": null, "choice_filter": null}, {"type": "select_one uv5ew06", "name": "Alerte_du_centre_de_provenance_pr_cis", "label": "Alerte du centre de provenance précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_009", "label": "Personne ayant accompagnée précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fc7op21", "name": "Si_oui_pr_ciser_007", "label": "Si oui, préciser", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_009} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one ld0gl59", "name": "Date_d_arriv_e_mentionn_e", "label": "Date d'arrivée mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "date", "name": "Si_oui_pr_ciser_la_date_001", "label": "Si oui, préciser la date", "required": "true", "relevant": "${Date_d_arriv_e_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one af4ba32", "name": "Heure_d_arriv_e_mentionn_e", "label": "Heure d'arrivée mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Si_oui_pr_ciser_l_heure_001", "label": "Si oui, préciser l'heure", "required": "true", "relevant": "${Heure_d_arriv_e_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one tx9vw98", "name": "Date_de_PEC", "label": "Date de PEC", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "date", "name": "Si_oui_pr_ciser_la_date_002", "label": "Si oui, préciser la date", "required": "true", "relevant": "${Date_de_PEC} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one zv7hq97", "name": "Heure_de_PEC", "label": "Heure de PEC", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Si_oui_pr_ciser_l_heure_002", "label": "Si oui, préciser l'heure", "required": "true", "relevant": "${Heure_de_PEC} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one vs7mi81", "name": "Heure_de_PEC_001", "label": "N° dossier médical mentioné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_le_num_ro", "label": "Préciser le numéro", "required": "true", "relevant": "${Heure_de_PEC_001} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_qi0vr17_001", "label": "Personne qui contre-réfère", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one ge07q77", "name": "Nom_de_la_personne_q_ntre_r_f_re_mentionn", "label": "Nom de la personne qui contre-réfère mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fi4gj23", "name": "Fonction_de_la_personne_qui_r", "label": "Fonction de la personne qui contre-réfère mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one bd2zh58", "name": "Si_oui_pr_ciser_008", "label": "Si oui, préciser", "required": "true", "relevant": "${Fonction_de_la_personne_qui_r_} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one ur6td78", "name": "Formation_sanitaire_provenance_mentionn", "label": "Formation sanitaire de provenance mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one qq2he79", "name": "Centre_et_service_d_accueil_mentionn", "label": "Centre et service d'accueil mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one xs71l36", "name": "Diagnostic_l_entr_l_h_pital_mentionn", "label": "Diagnostic à l'entrée à l'hôpital mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one tg8pu79", "name": "Prise_en_charge_fait_l_h_pital_mentionn", "label": "Prise en charge faite à l'hôpital mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one yv1mh06", "name": "Evolution_du_patient_mentionn", "label": "Evolution du patient mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one tv4ea69", "name": "Si_oui_pr_ciser_001", "label": "Si oui, préciser", "required": "true", "relevant": "${Evolution_du_patient_mentionn} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_autres", "label": "Préciser autres", "required": "true", "relevant": "${Si_oui_pr_ciser_001} = 'autres___pr_ciser'", "constraint": null, "choice_filter": null}, {"type": "select_one kx5jr47", "name": "Diagnostic_la_sortie_mention", "label": "Diagnostic à la sortie mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "text", "name": "Si_oui_pr_ciser_le_agnostic_la_sortie", "label": "Si oui, préciser le diagnostic à la sortie", "required": "true", "relevant": "${Diagnostic_la_sortie_mention} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_pw6li85", "label": "La référence est :", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one gt5ea89", "name": "R_f_rence_justifi_e_", "label": "Référence justifiée ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one ql1gf60", "name": "R_f_rence_ad_quate_", "label": "Référence adéquate ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one un5ue96", "name": "R_f_rence_opportune_", "label": "Référence opportune ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}, {"type": "text", "name": "Observations_ou_cons_oc_dure_de_r_f_rence", "label": "Observations ou conseils au responsable de la référence (sur PEC et procédure de référence)", "required": "false", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sz4ud34", "name": "Date_de_contre_r_f_rence_mentionn_e", "label": "Date de contre-référence mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one kt2ju25", "name": "Nom_du_contre_r_f_rent_mentionn", "label": "Nom du contre-référent mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one qq74z07", "name": "Signature_du_contre_r_f_rent_", "label": "Signature du contre-référent ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fy6sn75", "name": "Structure_de_contre_r_f_rence", "label": "Structure de contre-référence", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}], "choices": [{"list_name": "xu1fl42", "name": "partie_reference", "label": "Partie REFERENCE", "order": null, "Commune": null}, {"list_name": "xu1fl42", "name": "partie_contre_reference", "label": "Partie CONTRE-REFERENCE", "order": null, "Commune": null}, {"list_name": "cd1ge15", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "cd1ge15", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "zd0yi82", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "zd0yi82", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "wi7un85", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "wi7un85", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "wi7un85", "name": "inconnu", "label": "Inconnu", "order": null, "Commune": null}, {"list_name": "pn9bi96", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "pn9bi96", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "fs0lr62", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "fs0lr62", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "fs0lr62", "name": "inconnu", "label": "Inconnu", "order": null, "Commune": null}, {"list_name": "pp1xz91", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "pp1xz91", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "ll4jl67", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ll4jl67", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "ge07q77", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ge07q77", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "fi4gj23", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "fi4gj23", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "bd2zh58", "name": "m_decin", "label": "Médecin", "order": null, "Commune": null}, {"list_name": "bd2zh58", "name": "infirmier_re__ib", "label": "Infirmier(ère) IB", "order": "1", "Commune": null}, {"list_name": "bd2zh58", "name": "infirmier_re__cas", "label": "Infirmier(ère) CAS", "order": "2", "Commune": null}, {"list_name": "bd2zh58", "name": "infirmier_re__ias", "label": "Infirmier(ère) IAS", "order": "3", "Commune": null}, {"list_name": "bd2zh58", "name": "infirmier_re____toutes_cat_gories_confon", "label": "Infirmier(ère) : Toutes catégories confondues", "order": "4", "Commune": null}, {"list_name": "bd2zh58", "name": "sage_femme_cas", "label": "Sage-femme CAS", "order": "5", "Commune": null}, {"list_name": "bd2zh58", "name": "sage_femme_ias", "label": "Sage-femme IAS", "order": "6", "Commune": null}, {"list_name": "bd2zh58", "name": "sage_femme___toutes_cat_gories_confondue", "label": "Sage-femme : Toutes catégories confondues", "order": "7", "Commune": null}, {"list_name": "bd2zh58", "name": "aide_soignant", "label": "Aide-soignant", "order": "8", "Commune": null}, {"list_name": "wd19x48", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "wd19x48", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "fw5kl23", "name": "oui", "label": "PCIME (< 5 ans)", "order": null, "Commune": null}, {"list_name": "fw5kl23", "name": "non", "label": "Hors PCIME (> ou = 5 ans)", "order": null, "Commune": null}, {"list_name": "am46u77", "name": "option_1", "label": "Oui", "order": null, "Commune": null}, {"list_name": "am46u77", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "jt3kq16", "name": "option_1", "label": "M", "order": null, "Commune": null}, {"list_name": "jt3kq16", "name": "option_2", "label": "F", "order": null, "Commune": null}, {"list_name": "sk2td74", "name": "option_1", "label": "Oui", "order": null, "Commune": null}, {"list_name": "sk2td74", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "Commune", "name": "abomey", "label": "Abomey", "order": null, "Commune": null}, {"list_name": "Commune", "name": "agbangnizoun", "label": "Agbangnizoun", "order": null, "Commune": null}, {"list_name": "Commune", "name": "djidja", "label": "Djidja", "order": null, "Commune": null}, {"list_name": "Commune", "name": "autres", "label": "Autres", "order": null, "Commune": null}, {"list_name": "Arrondissement", "name": "agbokpa", "label": "Agbokpa", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "detohou", "label": "Detohou", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "djegbe", "label": "Djegbe", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "hounli", "label": "Hounli", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "sehoun", "label": "Sehoun", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "vidole", "label": "Vidole", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "zounzounme", "label": "Zounzounme", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "adanhondjigon", "label": "Adanhondjigon", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "adingningon", "label": "Adingningon", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "agz", "label": "Agbangnizoun", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "kinta", "label": "Kinta", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "kpota", "label": "Kpota", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "lissazounme", "label": "Lissazounme", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "sahe", "label": "Sahe", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "sinwe", "label": "Sinwe", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "tanve", "label": "Tanvè", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "zoungoudo", "label": "Zoungoudo", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "agondji", "label": "Agondji", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "agouna", "label": "Agouna", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "dan", "label": "Dan", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "djidja_centre", "label": "Djidja centre", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "dohouime", "label": "Dohouime", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "gobaix", "label": "Gobaix", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "houto", "label": "Houto", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "monsourou", "label": "Monsourou", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "mougnon", "label": "Mougnon", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "oungbegame", "label": "Oungbegame", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "setto", "label": "Setto", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "zounkon", "label": "Zounkon", "order": null, "Commune": "djidja"}, {"list_name": "fy6sn75", "name": "chd_zou", "label": "CHD Zou", "order": null, "Commune": null}, {"list_name": "fy6sn75", "name": "hz_mougnon", "label": "HZ Mougnon", "order": null, "Commune": null}, {"list_name": "fy6sn75", "name": "csc_djidja", "label": "CSC Djidja", "order": null, "Commune": null}, {"list_name": "fy6sn75", "name": "csc_abomey", "label": "CSC Abomey", "order": null, "Commune": null}, {"list_name": "fy6sn75", "name": "csc_agbangnizoun", "label": "CSC Agbangnizoun", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "dispensaire", "label": "Dispensaire", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "maternit", "label": "Maternité", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "p_diatrie", "label": "Pédiatrie", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "urgences", "label": "Urgences", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "m_decine", "label": "Médecine", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "chirurgie", "label": "Chirurgie", "order": null, "Commune": null}, {"list_name": "yc4mr58", "name": "urgence", "label": "Urgence", "order": null, "Commune": null}, {"list_name": "yc4mr58", "name": "a_froid", "label": "A froid", "order": null, "Commune": null}, {"list_name": "tc6wi16", "name": "probl_me_de_diagnostic", "label": "Problème de diagnostic", "order": null, "Commune": null}, {"list_name": "tc6wi16", "name": "probl_me_de_traitement", "label": "Problème de traitement", "order": null, "Commune": null}, {"list_name": "tc6wi16", "name": "autres_raisons", "label": "Autres raisons", "order": null, "Commune": null}, {"list_name": "fc7op21", "name": "agent_qualifi__de_sant", "label": "Agent qualifié de santé", "order": null, "Commune": null}, {"list_name": "fc7op21", "name": "agent_de_sant__non_qualifi", "label": "Agent de santé non qualifié", "order": null, "Commune": null}, {"list_name": "fc7op21", "name": "parent", "label": "Parent", "order": null, "Commune": null}, {"list_name": "fc7op21", "name": "non_accompagn", "label": "Non accompagné", "order": null, "Commune": null}, {"list_name": "hv1xk16", "name": "agent_qualifi__de_sant", "label": "Ambulance", "order": null, "Commune": null}, {"list_name": "hv1xk16", "name": "agent_de_sant__non_qualifi", "label": "Véhicule", "order": null, "Commune": null}, {"list_name": "hv1xk16", "name": "parent", "label": "Moto", "order": null, "Commune": null}, {"list_name": "hv1xk16", "name": "non_accompagn", "label": "Autres à préciser", "order": null, "Commune": null}, {"list_name": "ks7du86", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ks7du86", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "hm19x01", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "hm19x01", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "lz8yk60", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "lz8yk60", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "wn8fs96", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "wn8fs96", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "uz4rd36", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "uz4rd36", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "pj6fl90", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "pj6fl90", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "uv5ew06", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "uv5ew06", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "uv5ew06", "name": "inconnu", "label": "Inconnu", "order": null, "Commune": null}, {"list_name": "ld0gl59", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ld0gl59", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "af4ba32", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "af4ba32", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "tx9vw98", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "tx9vw98", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "zv7hq97", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "zv7hq97", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "vs7mi81", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "vs7mi81", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "ur6td78", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ur6td78", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "qq2he79", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "qq2he79", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "xs71l36", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "xs71l36", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "tg8pu79", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "tg8pu79", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "yv1mh06", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "yv1mh06", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "tv4ea69", "name": "gu_ri", "label": "Guéri", "order": null, "Commune": null}, {"list_name": "tv4ea69", "name": "evacu", "label": "Evacué", "order": 1, "Commune": null}, {"list_name": "tv4ea69", "name": "d_c_d", "label": "Décédé", "order": 2, "Commune": null}, {"list_name": "tv4ea69", "name": "sortis_contre_avis_m_dical__sc", "label": "Sortis Contre Avis Médical (SCAM)", "order": 3, "Commune": null}, {"list_name": "tv4ea69", "name": "autres___pr_ciser", "label": "Autres à préciser", "order": 4, "Commune": null}, {"list_name": "kx5jr47", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "kx5jr47", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "gt5ea89", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "gt5ea89", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "gt5ea89", "name": "inconnue", "label": "Inconnue", "order": null, "Commune": null}, {"list_name": "ql1gf60", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ql1gf60", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "ql1gf60", "name": "inconnue", "label": "Inconnue", "order": null, "Commune": null}, {"list_name": "un5ue96", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "un5ue96", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "un5ue96", "name": "inconnue", "label": "Inconnue", "order": null, "Commune": null}, {"list_name": "sz4ud34", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "sz4ud34", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "kt2ju25", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "kt2ju25", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "qq74z07", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "qq74z07", "name": "non", "label": "Non", "order": null, "Commune": null}]}</script>
+<script id="evalRefSurveyData" type="application/json">{"survey": [{"type": "note", "name": "Bonjour_Concernant_ou_INCONNU_Merci", "label": "Bonjour, Concernant l’évaluation de la qualité des fiches de référence et contre‑référence, merci de cocher “OUI” uniquement lorsque l’information est effectivement retrouvée dans la fiche de référence. Dans le cas contraire, cochez “NON” ou \"INCONNU\". Merci.", "required": "false", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_multiple xu1fl42", "name": "Parties_du_Support_disponibles", "label": "Parties du Support disponibles", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_hk51e79", "label": "EVALUATION DE LA FICHE DE REFERENCE", "required": "true", "relevant": "selected(${Parties_du_Support_disponibles}, 'partie_reference')", "constraint": null, "choice_filter": null}, {"type": "select_one cd1ge15", "name": "Num_ro_de_r_f_rence_pr_cis", "label": "Numéro de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one zd0yi82", "name": "Num_ro_de_la_Fiche_de_r_f_rence_pr_cis", "label": "Numéro de la Fiche de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one wi7un85", "name": "Centre_d_accueil_alert_", "label": "Centre d'accueil alerté ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one pn9bi96", "name": "Date_mentionn_e", "label": "Date mentionnée?", "required": "true", "relevant": "${Centre_d_accueil_alert_} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "date", "name": "Pr_ciser_la_date", "label": "Préciser la date", "required": "true", "relevant": "${Date_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one pn9bi96", "name": "Heure_mentionn_e", "label": "Heure mentionnée?", "required": "true", "relevant": "${Centre_d_accueil_alert_} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "time", "name": "Pr_ciser_l_heure", "label": "Préciser l'heure", "required": "true", "relevant": "${Heure_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one fs0lr62", "name": "Standard_contact_", "label": "Standard contacté ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one pp1xz91", "name": "Formation_sanitaire_pr_cis_e", "label": "Formation sanitaire précisée?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one Commune", "name": "Commune_provenance_002", "label": "Commune de la formation sanitaire de provenance", "required": "true", "relevant": "${Formation_sanitaire_pr_cis_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one formations_zone", "name": "Si_oui_pr_ciser_002", "label": "Formation sanitaire de provenance", "required": "true", "relevant": "${Formation_sanitaire_pr_cis_e} = 'oui'", "constraint": null, "choice_filter": "Commune=${Commune_provenance_002}"}, {"type": "text", "name": "Preciser_autre_formation_002", "label": "Préciser le centre", "required": "true", "relevant": "${Si_oui_pr_ciser_002} = 'autres'", "constraint": null, "choice_filter": null}, {"type": "select_one ll4jl67", "name": "Date_d_admission_pr_cis_e", "label": "Date d'admission précisée?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "date", "name": "Si_oui_pr_ciser_la_date", "label": "Si oui, préciser la date", "required": "true", "relevant": "${Date_d_admission_pr_cis_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one ll4jl67", "name": "Heure_d_admission_pr_cis_e", "label": "Heure d'admission précisée?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Si_oui_pr_ciser_l_heure", "label": "Si oui, préciser l'heure", "required": "true", "relevant": "${Heure_d_admission_pr_cis_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_qi0vr17", "label": "Personne qui réfère", "required": "false", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one ge07q77", "name": "Nom_de_la_personne_qui_r_f_re", "label": "Nom de la personne qui réfère", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fi4gj23", "name": "Fonction_de_la_personne_qui_r_", "label": "Fonction de la personne qui réfère", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one bd2zh58", "name": "Si_oui_pr_ciser_003", "label": "Si oui, préciser", "required": "true", "relevant": "${Fonction_de_la_personne_qui_r_} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one wd19x48", "name": "Nom_et_pr_nom_du_de_la_patient_e_pr_cis", "label": "Nom et prénom du/de la patient(e) précisé?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one wd19x48", "name": "Nom_et_pr_nom_du_de_la_patient", "label": "Age du patient mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fw5kl23", "name": "Age_pr_cis_", "label": "Age précisé ?", "required": "true", "relevant": "${Nom_et_pr_nom_du_de_la_patient} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "integer", "name": "Pr_ciser_l_ge_en_mois", "label": "Préciser l'âge (en mois)", "required": "true", "relevant": "${Age_pr_cis_} = 'oui'", "constraint": ". <= 59", "choice_filter": null}, {"type": "integer", "name": "Pr_ciser_l_ge_en_ann_e", "label": "Préciser l'âge (en année)", "required": "true", "relevant": "${Age_pr_cis_} = 'non'", "constraint": ". >= 5", "choice_filter": null}, {"type": "select_one am46u77", "name": "Sexe_pr_cis", "label": "Sexe précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one jt3kq16", "name": "Si_oui_pr_ciser_004", "label": "Si oui, préciser", "required": "true", "relevant": "${Sexe_pr_cis} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Ethnie_pr_cis_e", "label": "Ethnie précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e", "label": "Commune précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one Commune", "name": "Commune", "label": "Commune", "required": "true", "relevant": "${Commune_pr_cis_e} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_autre_commune", "label": "Préciser autre commune", "required": "true", "relevant": "${Commune} = 'autres'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001", "label": "Arrondissement précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one Arrondissement", "name": "Arrondissement", "label": "Arrondissement", "required": "false", "relevant": "${Commune_pr_cis_e_001} = 'option_1'", "constraint": null, "choice_filter": "Commune=${Commune}"}, {"type": "text", "name": "Pr_ciser_autre_Arrondissement", "label": "Préciser autre Arrondissement", "required": "true", "relevant": "${Commune_pr_cis_e_001} = 'option_1' and ${Commune} = 'autres'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001", "label": "Village de provenance précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "text", "name": "Si_oui_pr_cis", "label": "Si oui, précisé", "required": "true", "relevant": "${Commune_pr_cis_e_001_001} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001", "label": "Personne contact précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_001", "label": "Numéro de téléphone précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0", "label": "Centre de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fy6sn75", "name": "Si_oui_pr_ciser_le_centre_de_r_f_rence", "label": "Si oui, préciser le centre de référence", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_001", "label": "Service de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one jr4ir02", "name": "Si_oui_pr_ciser_le_service_de_r_f_rence", "label": "Si oui, préciser le service de référence", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_001} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_002", "label": "Type de référence précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one yc4mr58", "name": "Si_oui_pr_ciser_le_type_de_r_f_rece", "label": "Si oui, préciser le type de référece", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_002} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_003", "label": "Raison de référence précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one tc6wi16", "name": "Si_oui_pr_ciser_la_raison", "label": "Si oui, préciser la raison", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_003} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_la_raison", "label": "Préciser la raison", "required": "true", "relevant": "${Si_oui_pr_ciser_la_raison} = 'autres_raisons'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_004", "label": "Diagnostic évoqué précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_005", "label": "Traitements faits remplis", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_006", "label": "Observations remplies", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_007", "label": "Personne ayant accompagnée précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fc7op21", "name": "Si_oui_pr_ciser_005", "label": "Si oui, préciser", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_007} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_008", "label": "Moyen de transport utilisé précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one hv1xk16", "name": "Si_oui_pr_ciser", "label": "Si oui, préciser", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_008} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_le_moyen_de_transport_utilis", "label": "Préciser le moyen de transport utilisé", "required": "true", "relevant": "${Si_oui_pr_ciser} = 'non_accompagn'", "constraint": null, "choice_filter": null}, {"type": "select_one ks7du86", "name": "Date_de_r_f_rence_mentionn_e", "label": "Date de référence mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "date", "name": "Si_oui_pr_ciser_006", "label": "Si oui, préciser", "required": "true", "relevant": "${Date_de_r_f_rence_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one hm19x01", "name": "Heure_d_arriv_e_de_l_ambulance", "label": "Heure d'arrivée de l'ambulance précisé mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Pr_ciser_l_heure_001", "label": "Préciser l'heure", "required": "true", "relevant": "${Heure_d_arriv_e_de_l_ambulance} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one lz8yk60", "name": "Heure_de_d_part_mentionn_e", "label": "Heure de départ mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Pr_ciser_l_heure_002", "label": "Préciser l'heure", "required": "true", "relevant": "${Heure_de_d_part_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one wn8fs96", "name": "Signature", "label": "Signature", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one uz4rd36", "name": "Nom_de_l_agent_mentionn", "label": "Nom de l'agent mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one pj6fl90", "name": "Cache_du_service", "label": "Cache du service?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_hc6hy14", "label": "EVALUATION DE LA CONTRE-REFERENCE", "required": "true", "relevant": "selected(${Parties_du_Support_disponibles}, 'partie_contre_reference')", "constraint": null, "choice_filter": null}, {"type": "select_one uv5ew06", "name": "Alerte_du_centre_de_provenance_pr_cis", "label": "Alerte du centre de provenance précisé", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sk2td74", "name": "Commune_pr_cis_e_001_001_001_0_009", "label": "Personne ayant accompagnée précisée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fc7op21", "name": "Si_oui_pr_ciser_007", "label": "Si oui, préciser", "required": "true", "relevant": "${Commune_pr_cis_e_001_001_001_0_009} = 'option_1'", "constraint": null, "choice_filter": null}, {"type": "select_one ld0gl59", "name": "Date_d_arriv_e_mentionn_e", "label": "Date d'arrivée mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "date", "name": "Si_oui_pr_ciser_la_date_001", "label": "Si oui, préciser la date", "required": "true", "relevant": "${Date_d_arriv_e_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one af4ba32", "name": "Heure_d_arriv_e_mentionn_e", "label": "Heure d'arrivée mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Si_oui_pr_ciser_l_heure_001", "label": "Si oui, préciser l'heure", "required": "true", "relevant": "${Heure_d_arriv_e_mentionn_e} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one tx9vw98", "name": "Date_de_PEC", "label": "Date de PEC", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "date", "name": "Si_oui_pr_ciser_la_date_002", "label": "Si oui, préciser la date", "required": "true", "relevant": "${Date_de_PEC} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one zv7hq97", "name": "Heure_de_PEC", "label": "Heure de PEC", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "time", "name": "Si_oui_pr_ciser_l_heure_002", "label": "Si oui, préciser l'heure", "required": "true", "relevant": "${Heure_de_PEC} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "select_one vs7mi81", "name": "Heure_de_PEC_001", "label": "N° dossier médical mentioné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_le_num_ro", "label": "Préciser le numéro", "required": "true", "relevant": "${Heure_de_PEC_001} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_qi0vr17_001", "label": "Personne qui contre-réfère", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one ge07q77", "name": "Nom_de_la_personne_q_ntre_r_f_re_mentionn", "label": "Nom de la personne qui contre-réfère mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fi4gj23", "name": "Fonction_de_la_personne_qui_r", "label": "Fonction de la personne qui contre-réfère mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one bd2zh58", "name": "Si_oui_pr_ciser_008", "label": "Si oui, préciser", "required": "true", "relevant": "${Fonction_de_la_personne_qui_r_} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one ur6td78", "name": "Formation_sanitaire_provenance_mentionn", "label": "Formation sanitaire de provenance mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one qq2he79", "name": "Centre_et_service_d_accueil_mentionn", "label": "Centre et service d'accueil mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one xs71l36", "name": "Diagnostic_l_entr_l_h_pital_mentionn", "label": "Diagnostic à l'entrée à l'hôpital mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one tg8pu79", "name": "Prise_en_charge_fait_l_h_pital_mentionn", "label": "Prise en charge faite à l'hôpital mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one yv1mh06", "name": "Evolution_du_patient_mentionn", "label": "Evolution du patient mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one tv4ea69", "name": "Si_oui_pr_ciser_001", "label": "Si oui, préciser", "required": "true", "relevant": "${Evolution_du_patient_mentionn} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "text", "name": "Pr_ciser_autres", "label": "Préciser autres", "required": "true", "relevant": "${Si_oui_pr_ciser_001} = 'autres___pr_ciser'", "constraint": null, "choice_filter": null}, {"type": "select_one kx5jr47", "name": "Diagnostic_la_sortie_mention", "label": "Diagnostic à la sortie mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "text", "name": "Si_oui_pr_ciser_le_agnostic_la_sortie", "label": "Si oui, préciser le diagnostic à la sortie", "required": "true", "relevant": "${Diagnostic_la_sortie_mention} = 'oui'", "constraint": null, "choice_filter": null}, {"type": "begin_group", "name": "group_pw6li85", "label": "La référence est :", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one gt5ea89", "name": "R_f_rence_justifi_e_", "label": "Référence justifiée ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one ql1gf60", "name": "R_f_rence_ad_quate_", "label": "Référence adéquate ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one un5ue96", "name": "R_f_rence_opportune_", "label": "Référence opportune ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}, {"type": "text", "name": "Observations_ou_cons_oc_dure_de_r_f_rence", "label": "Observations ou conseils au responsable de la référence (sur PEC et procédure de référence)", "required": "false", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one sz4ud34", "name": "Date_de_contre_r_f_rence_mentionn_e", "label": "Date de contre-référence mentionnée", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one kt2ju25", "name": "Nom_du_contre_r_f_rent_mentionn", "label": "Nom du contre-référent mentionné", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one qq74z07", "name": "Signature_du_contre_r_f_rent_", "label": "Signature du contre-référent ?", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "select_one fy6sn75", "name": "Structure_de_contre_r_f_rence", "label": "Structure de contre-référence", "required": "true", "relevant": null, "constraint": null, "choice_filter": null}, {"type": "end_group", "name": null, "label": null, "required": null, "relevant": null, "constraint": null, "choice_filter": null}], "choices": [{"list_name": "xu1fl42", "name": "partie_reference", "label": "Partie REFERENCE", "order": null, "Commune": null}, {"list_name": "xu1fl42", "name": "partie_contre_reference", "label": "Partie CONTRE-REFERENCE", "order": null, "Commune": null}, {"list_name": "cd1ge15", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "cd1ge15", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "zd0yi82", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "zd0yi82", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "wi7un85", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "wi7un85", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "wi7un85", "name": "inconnu", "label": "Inconnu", "order": null, "Commune": null}, {"list_name": "pn9bi96", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "pn9bi96", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "fs0lr62", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "fs0lr62", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "fs0lr62", "name": "inconnu", "label": "Inconnu", "order": null, "Commune": null}, {"list_name": "pp1xz91", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "pp1xz91", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "ll4jl67", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ll4jl67", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "ge07q77", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ge07q77", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "fi4gj23", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "fi4gj23", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "bd2zh58", "name": "m_decin", "label": "Médecin", "order": null, "Commune": null}, {"list_name": "bd2zh58", "name": "infirmier_re__ib", "label": "Infirmier(ère) IB", "order": "1", "Commune": null}, {"list_name": "bd2zh58", "name": "infirmier_re__cas", "label": "Infirmier(ère) CAS", "order": "2", "Commune": null}, {"list_name": "bd2zh58", "name": "infirmier_re__ias", "label": "Infirmier(ère) IAS", "order": "3", "Commune": null}, {"list_name": "bd2zh58", "name": "infirmier_re____toutes_cat_gories_confon", "label": "Infirmier(ère) : Toutes catégories confondues", "order": "4", "Commune": null}, {"list_name": "bd2zh58", "name": "sage_femme_cas", "label": "Sage-femme CAS", "order": "5", "Commune": null}, {"list_name": "bd2zh58", "name": "sage_femme_ias", "label": "Sage-femme IAS", "order": "6", "Commune": null}, {"list_name": "bd2zh58", "name": "sage_femme___toutes_cat_gories_confondue", "label": "Sage-femme : Toutes catégories confondues", "order": "7", "Commune": null}, {"list_name": "bd2zh58", "name": "aide_soignant", "label": "Aide-soignant", "order": "8", "Commune": null}, {"list_name": "wd19x48", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "wd19x48", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "fw5kl23", "name": "oui", "label": "PCIME (< 5 ans)", "order": null, "Commune": null}, {"list_name": "fw5kl23", "name": "non", "label": "Hors PCIME (> ou = 5 ans)", "order": null, "Commune": null}, {"list_name": "am46u77", "name": "option_1", "label": "Oui", "order": null, "Commune": null}, {"list_name": "am46u77", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "jt3kq16", "name": "option_1", "label": "M", "order": null, "Commune": null}, {"list_name": "jt3kq16", "name": "option_2", "label": "F", "order": null, "Commune": null}, {"list_name": "sk2td74", "name": "option_1", "label": "Oui", "order": null, "Commune": null}, {"list_name": "sk2td74", "name": "option_2", "label": "Non", "order": null, "Commune": null}, {"list_name": "Commune", "name": "abomey", "label": "Abomey", "order": null, "Commune": null}, {"list_name": "Commune", "name": "agbangnizoun", "label": "Agbangnizoun", "order": null, "Commune": null}, {"list_name": "Commune", "name": "djidja", "label": "Djidja", "order": null, "Commune": null}, {"list_name": "Commune", "name": "autres", "label": "Autres", "order": null, "Commune": null}, {"list_name": "Arrondissement", "name": "agbokpa", "label": "Agbokpa", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "detohou", "label": "Detohou", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "djegbe", "label": "Djegbe", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "hounli", "label": "Hounli", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "sehoun", "label": "Sehoun", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "vidole", "label": "Vidole", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "zounzounme", "label": "Zounzounme", "order": null, "Commune": "abomey"}, {"list_name": "Arrondissement", "name": "adanhondjigon", "label": "Adanhondjigon", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "adingningon", "label": "Adingningon", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "agz", "label": "Agbangnizoun", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "kinta", "label": "Kinta", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "kpota", "label": "Kpota", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "lissazounme", "label": "Lissazounme", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "sahe", "label": "Sahe", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "sinwe", "label": "Sinwe", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "tanve", "label": "Tanvè", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "zoungoudo", "label": "Zoungoudo", "order": null, "Commune": "agbangnizoun"}, {"list_name": "Arrondissement", "name": "agondji", "label": "Agondji", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "agouna", "label": "Agouna", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "dan", "label": "Dan", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "djidja_centre", "label": "Djidja centre", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "dohouime", "label": "Dohouime", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "gobaix", "label": "Gobaix", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "houto", "label": "Houto", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "monsourou", "label": "Monsourou", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "mougnon", "label": "Mougnon", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "oungbegame", "label": "Oungbegame", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "setto", "label": "Setto", "order": null, "Commune": "djidja"}, {"list_name": "Arrondissement", "name": "zounkon", "label": "Zounkon", "order": null, "Commune": "djidja"}, {"list_name": "fy6sn75", "name": "chd_zou", "label": "CHD Zou", "order": null, "Commune": null}, {"list_name": "fy6sn75", "name": "hz_mougnon", "label": "HZ Mougnon", "order": null, "Commune": null}, {"list_name": "fy6sn75", "name": "csc_djidja", "label": "CSC Djidja", "order": null, "Commune": null}, {"list_name": "fy6sn75", "name": "csc_abomey", "label": "CSC Abomey", "order": null, "Commune": null}, {"list_name": "fy6sn75", "name": "csc_agbangnizoun", "label": "CSC Agbangnizoun", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "dispensaire", "label": "Dispensaire", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "maternit", "label": "Maternité", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "p_diatrie", "label": "Pédiatrie", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "urgences", "label": "Urgences", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "m_decine", "label": "Médecine", "order": null, "Commune": null}, {"list_name": "jr4ir02", "name": "chirurgie", "label": "Chirurgie", "order": null, "Commune": null}, {"list_name": "yc4mr58", "name": "urgence", "label": "Urgence", "order": null, "Commune": null}, {"list_name": "yc4mr58", "name": "a_froid", "label": "A froid", "order": null, "Commune": null}, {"list_name": "tc6wi16", "name": "probl_me_de_diagnostic", "label": "Problème de diagnostic", "order": null, "Commune": null}, {"list_name": "tc6wi16", "name": "probl_me_de_traitement", "label": "Problème de traitement", "order": null, "Commune": null}, {"list_name": "tc6wi16", "name": "autres_raisons", "label": "Autres raisons", "order": null, "Commune": null}, {"list_name": "fc7op21", "name": "agent_qualifi__de_sant", "label": "Agent qualifié de santé", "order": null, "Commune": null}, {"list_name": "fc7op21", "name": "agent_de_sant__non_qualifi", "label": "Agent de santé non qualifié", "order": null, "Commune": null}, {"list_name": "fc7op21", "name": "parent", "label": "Parent", "order": null, "Commune": null}, {"list_name": "fc7op21", "name": "non_accompagn", "label": "Non accompagné", "order": null, "Commune": null}, {"list_name": "hv1xk16", "name": "agent_qualifi__de_sant", "label": "Ambulance", "order": null, "Commune": null}, {"list_name": "hv1xk16", "name": "agent_de_sant__non_qualifi", "label": "Véhicule", "order": null, "Commune": null}, {"list_name": "hv1xk16", "name": "parent", "label": "Moto", "order": null, "Commune": null}, {"list_name": "hv1xk16", "name": "non_accompagn", "label": "Autres à préciser", "order": null, "Commune": null}, {"list_name": "ks7du86", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ks7du86", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "hm19x01", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "hm19x01", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "lz8yk60", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "lz8yk60", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "wn8fs96", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "wn8fs96", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "uz4rd36", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "uz4rd36", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "pj6fl90", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "pj6fl90", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "uv5ew06", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "uv5ew06", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "uv5ew06", "name": "inconnu", "label": "Inconnu", "order": null, "Commune": null}, {"list_name": "ld0gl59", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ld0gl59", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "af4ba32", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "af4ba32", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "tx9vw98", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "tx9vw98", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "zv7hq97", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "zv7hq97", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "vs7mi81", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "vs7mi81", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "ur6td78", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ur6td78", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "qq2he79", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "qq2he79", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "xs71l36", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "xs71l36", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "tg8pu79", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "tg8pu79", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "yv1mh06", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "yv1mh06", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "tv4ea69", "name": "gu_ri", "label": "Guéri", "order": null, "Commune": null}, {"list_name": "tv4ea69", "name": "evacu", "label": "Evacué", "order": 1, "Commune": null}, {"list_name": "tv4ea69", "name": "d_c_d", "label": "Décédé", "order": 2, "Commune": null}, {"list_name": "tv4ea69", "name": "sortis_contre_avis_m_dical__sc", "label": "Sortis Contre Avis Médical (SCAM)", "order": 3, "Commune": null}, {"list_name": "tv4ea69", "name": "autres___pr_ciser", "label": "Autres à préciser", "order": 4, "Commune": null}, {"list_name": "kx5jr47", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "kx5jr47", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "gt5ea89", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "gt5ea89", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "gt5ea89", "name": "inconnue", "label": "Inconnue", "order": null, "Commune": null}, {"list_name": "ql1gf60", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "ql1gf60", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "ql1gf60", "name": "inconnue", "label": "Inconnue", "order": null, "Commune": null}, {"list_name": "un5ue96", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "un5ue96", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "un5ue96", "name": "inconnue", "label": "Inconnue", "order": null, "Commune": null}, {"list_name": "sz4ud34", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "sz4ud34", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "kt2ju25", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "kt2ju25", "name": "non", "label": "Non", "order": null, "Commune": null}, {"list_name": "qq74z07", "name": "oui", "label": "Oui", "order": null, "Commune": null}, {"list_name": "qq74z07", "name": "non", "label": "Non", "order": null, "Commune": null}]}</script>
     <!-- ANALYSE EVALUATION DES FICHES (admin) -->
     <section id="view-evalRefAnalyse" class="view">
       <div class="panel">
@@ -1726,6 +1773,7 @@ form#survey-form {margin-top:36px;}
               <option value="agent_collecte">Agent de collecte</option>
               <option value="gestionnaire">Gestionnaire matière</option>
               <option value="administrateur">Administrateur</option>
+              <option value="consultation">Consultation (lecture seule)</option>
             </select>
           </div>
           <div><button type="submit" class="btn btn-primary">Créer le compte</button></div>
@@ -1775,40 +1823,73 @@ form#survey-form {margin-top:36px;}
   // Liste des centres de santé (zone sanitaire Djidja-Abomey-Agbangnizoun)
   const healthCenters = [
     {commune:"Abomey", arrondissement:"Agbokpa", centre:"CS Agbokpa"},
-    {commune:"Abomey", arrondissement:"Detohou centre", centre:"CS Detohou"},
-    {commune:"Abomey", arrondissement:"Detohou centre", centre:"CS Tangandji"},
-    {commune:"Abomey", arrondissement:"Djegbe", centre:"CS Djegbe (Abomey)"},
+    {commune:"Abomey", arrondissement:"Detohou Centre", centre:"CS Detohou"},
+    {commune:"Abomey", arrondissement:"Detohou Centre", centre:"CS Tangandji"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"CS Djegbe"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"Centre Humanitaire Chiara Luce Badaro"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"Csi Tout Est Grace"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"Cabinet De Soins 'Ste Lisette'"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"Cabinet Medical' Saint Simon-Pierre'"},
+    {commune:"Abomey", arrondissement:"Goho", centre:"Cabinet Génycologique Dr Hans"},
     {commune:"Abomey", arrondissement:"Hounli", centre:"CS Hounli"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Cab De Soins Maranatha"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Centre De Sante Humanitaire ' Sante Pour Tous'"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Csi Saint Enfant Jesus"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Dieu Est Grand"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Clinique D'Accouchement Eutocique La Main De Dieu"},
+    {commune:"Abomey", arrondissement:"Lele", centre:"Clinique D'Accouchement Eutocique Sainte Marie Mahuena"},
+    {commune:"Abomey", arrondissement:"Sada", centre:"Clinique Medicale De Gynecologie 'Femme Epanouie De St Antoine"},
     {commune:"Abomey", arrondissement:"Sehoun", centre:"CS Sehoun"},
+    {commune:"Abomey", arrondissement:"Sehoun", centre:"Centre De Sante Humanitaire ' Sainte Marie'"},
     {commune:"Abomey", arrondissement:"Vidole", centre:"CS Adandokpodji"},
     {commune:"Abomey", arrondissement:"Vidole", centre:"CS Vidole"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Csi La Sante Pour Tous"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Clinique Medical Oumar De Zongo"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Csi Sedami"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Cabinet De Soins Infirmiers Miwagan"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Clinique Ste Denise"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Csi Miwagan"},
     {commune:"Abomey", arrondissement:"Zounzounme", centre:"CS Zounzonme"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Adanhondjigon", centre:"CS Adanhondjigon"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Adingningon", centre:"CS Adingnigon"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Agbangnizoun", centre:"CS Agbangnizoun"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Agbangnizoun", centre:"Csi La Lumiere"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Agbangnizoun", centre:"Csi Sante Pour Tous"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Agbangnizoun", centre:"Csi ' Azontchegbo'"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Kinta", centre:"CS Kinta"},
-    {commune:"Agbangnizoun (Com)", arrondissement:"Kpota", centre:"CS AKODEBAKOU"},
-    {commune:"Agbangnizoun (Com)", arrondissement:"Kpota", centre:"MI Sinwe-Kpota"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Kpota", centre:"CS Akodébakou"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Kpota", centre:"CS Sinwe-Kpota"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Lissazounme", centre:"CS Lissazounme"},
-    {commune:"Agbangnizoun (Com)", arrondissement:"Sahe", centre:"CS DOVOTA"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Lissazounme", centre:"Dispensaire Saint Camille"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Sahe", centre:"CS Dovota"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Sahe", centre:"CS Sahè"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Sinwe", centre:"CS Sinwe"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Sinwe", centre:"Clinique ' Tout Est Grace De Sinwe Lego '"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Tanvè", centre:"CS Tanve"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Zoungoudo", centre:"CS Kpoto"},
     {commune:"Djidja (Com)", arrondissement:"Agondji", centre:"CS Agondji"},
     {commune:"Djidja (Com)", arrondissement:"Agouna", centre:"CS Agouna"},
     {commune:"Djidja (Com)", arrondissement:"Dan", centre:"CS Dan"},
-    {commune:"Djidja (Com)", arrondissement:"Djidja centre", centre:"CS Djidja"},
+    {commune:"Djidja (Com)", arrondissement:"Dan", centre:"Clinique D'Accouchement Eutocique Fifame"},
+    {commune:"Djidja (Com)", arrondissement:"Dan (Dridji)", centre:"Cabinet De Soins Infirmiers Sainte Marie De Nazareth"},
+    {commune:"Djidja (Com)", arrondissement:"Djidja", centre:"Cabinet De Soins Infirmiers La Sante De Djidja"},
+    {commune:"Djidja (Com)", arrondissement:"Djidja Centre", centre:"CS Djidja"},
     {commune:"Djidja (Com)", arrondissement:"Dohouime", centre:"CS Dohouime"},
+    {commune:"Djidja (Com)", arrondissement:"Gbihoungon", centre:"Csi Azontchehoue"},
     {commune:"Djidja (Com)", arrondissement:"Gobaix", centre:"CS Gobaix"},
+    {commune:"Djidja (Com)", arrondissement:"Gounnoukoui", centre:"Clinique D'Accouchement Eutocique La Fontaine"},
     {commune:"Djidja (Com)", arrondissement:"Houto", centre:"CS Outo"},
     {commune:"Djidja (Com)", arrondissement:"Monsourou", centre:"CS Lobeta"},
     {commune:"Djidja (Com)", arrondissement:"Monsourou", centre:"CS Monsourou"},
+    {commune:"Djidja (Com)", arrondissement:"Monsourou", centre:"Csi St Paul"},
     {commune:"Djidja (Com)", arrondissement:"Mougnon", centre:"CS Mougnon"},
-    {commune:"Djidja (Com)", arrondissement:"Mougnon", centre:"HZ Djidja"},
     {commune:"Djidja (Com)", arrondissement:"Oungbegame", centre:"CS Oumgbega"},
     {commune:"Djidja (Com)", arrondissement:"Setto", centre:"CS Saloudji"},
     {commune:"Djidja (Com)", arrondissement:"Setto", centre:"CS Setto"},
+    {commune:"Djidja (Com)", arrondissement:"Setto", centre:"Cabinet De Soins Infirmiers Saint Jonas"},
+    {commune:"Djidja (Com)", arrondissement:"Setto", centre:"Csi Sante Pourtous"},
+    {commune:"Djidja (Com)", arrondissement:"Toweta", centre:"Csi Jean Paul Ii"},
+    {commune:"Djidja (Com)", arrondissement:"Zinkanme", centre:"Clinique D'Accouchement Eutocique Mawudeme"},
     {commune:"Djidja (Com)", arrondissement:"Zounkon", centre:"CS Ayogbé"}
   ];
 
@@ -2092,11 +2173,10 @@ form#survey-form {margin-top:36px;}
     administrateur: ['dashboard','ambulances','depAmb','depRH','recettes','contreEval','satisfaction','evalRefAnalyse','users'],
     gestionnaire: ['dashboard','depAmb','depRH','contreEval'],
     agent_collecte: ['ambulances','recettes','evalRef'],
-    // Rôle lecture seule : accès au tableau de bord et aux analyses (satisfaction,
-    // évaluation des fiches de référence), sans aucun onglet contenant une action
-    // d'écriture (le backend la refuserait de toute façon, mais autant ne pas
-    // afficher de formulaires ou boutons inutilisables).
-    consultation: ['dashboard','satisfaction','evalRefAnalyse']
+    // Compte public, sans identifiants : accès à tout le tableau de bord et aux analyses,
+    // en lecture seule (aucun onglet de gestion des comptes, aucune action d'écriture —
+    // voir la classe CSS "read-only-mode" posée dans enterApp()).
+    consultation: ['dashboard','ambulances','depAmb','depRH','recettes','contreEval','satisfaction','evalRefAnalyse']
   };
 
   const STATE = { token: null, session: null, data: null };
@@ -2186,8 +2266,12 @@ form#survey-form {margin-top:36px;}
       btn.style.display = ok ? '' : 'none';
       if(ok && !firstVisible) firstVisible = btn.dataset.view;
     });
-    el('ambulancesAdminPanel').style.display = STATE.session.role === 'administrateur' ? '' : 'none';
+    el('ambulancesAdminPanel').style.display = (STATE.session.role === 'administrateur' || STATE.session.role === 'consultation') ? '' : 'none';
     el('ambulancesAgentPanel').style.display = STATE.session.role === 'agent_collecte' ? '' : 'none';
+    // Mode lecture seule : masque tous les formulaires/boutons d'écriture côté client.
+    // Le serveur refuse de toute façon toute action d'écriture pour ce rôle (voir PERMISSIONS
+    // côté Apps Script) — ceci n'est qu'une couche d'ergonomie, pas la seule protection.
+    document.body.classList.toggle('read-only-mode', STATE.session.role === 'consultation');
     activateTab(firstVisible || 'dashboard');
     renderAll();
   }
@@ -2252,6 +2336,115 @@ form#survey-form {margin-top:36px;}
 
   // ---------------- Render: dashboard ----------------
   let chartCommune, chartDepenses;
+  let chartAmbTaux, chartAmbDepense, chartAmbTauxTab, chartAmbDepenseTab;
+  let chartDepCategorieCommune, chartCentreComparaison;
+
+  const AMB_KEYS = ['Ambulance Djidja','Ambulance Agbangnizoun','Ambulance Dan','Ambulance Agouna'];
+  const AMB_COLORS = ['#166a79','#d99a2b','#2f8f5b','#c0483a'];
+
+  // Taux d'exploitation de chaque ambulance = sa part du nombre total de références
+  // effectuées, toutes ambulances confondues (somme des colonnes du tableau de
+  // références par centre). Dépense attribuable = ce taux appliqué au total des
+  // dépenses ambulances (carburant, entretien, etc.), en supposant ces dépenses
+  // partagées entre les 4 ambulances au prorata de leur usage réel.
+  function computeAmbulanceExploitation(d){
+    const refAmb = d.refAmbulances || [];
+    const totalDepAmb = (d.depensesAmbulances && d.depensesAmbulances.total) || 0;
+    const totals = {}; let grandTotal = 0;
+    AMB_KEYS.forEach(k=>{ const t = refAmb.reduce((s,r)=>s + (Number(r.amb[k])||0), 0); totals[k]=t; grandTotal += t; });
+    return AMB_KEYS.map(k=>{
+      const taux = grandTotal>0 ? totals[k]/grandTotal : 0;
+      return { ambulance:k, nbReferences: totals[k], taux, depenseAttribuable: taux*totalDepAmb };
+    });
+  }
+
+  // suffix='' -> canevas du Tableau de bord ; suffix='Tab' -> canevas dupliqué dans
+  // l'onglet Ambulances (demandé pour l'administrateur, aussi visible en consultation).
+  function renderAmbulanceExploitation(d, suffix){
+    const tauxId = 'chartAmbTaux' + suffix, depId = 'chartAmbDepense' + suffix, tblId = 'tblAmbExploit' + suffix;
+    if(!el(tauxId) || !el(depId)) return;
+    const stats = computeAmbulanceExploitation(d);
+    const labels = stats.map(s=>s.ambulance.replace('Ambulance ',''));
+
+    const ctxT = el(tauxId).getContext('2d');
+    if(suffix===''){ if(chartAmbTaux) chartAmbTaux.destroy(); }
+    else { if(chartAmbTauxTab) chartAmbTauxTab.destroy(); }
+    const chT = new Chart(ctxT, {
+      type:'doughnut',
+      data:{ labels, datasets:[{ data: stats.map(s=>s.taux), backgroundColor: AMB_COLORS }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'bottom'},
+        tooltip:{ callbacks:{ label: ctx => ctx.label + ' : ' + PCT(ctx.raw) + ' (' + FCFA(stats[ctx.dataIndex].nbReferences) + ' réf.)' } } } }
+    });
+    if(suffix==='') chartAmbTaux = chT; else chartAmbTauxTab = chT;
+
+    const ctxD = el(depId).getContext('2d');
+    if(suffix===''){ if(chartAmbDepense) chartAmbDepense.destroy(); }
+    else { if(chartAmbDepenseTab) chartAmbDepenseTab.destroy(); }
+    const chD = new Chart(ctxD, {
+      type:'doughnut',
+      data:{ labels, datasets:[{ data: stats.map(s=>s.depenseAttribuable), backgroundColor: AMB_COLORS }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'bottom'},
+        tooltip:{ callbacks:{ label: ctx => ctx.label + ' : ' + money(ctx.raw) } } } }
+    });
+    if(suffix==='') chartAmbDepense = chD; else chartAmbDepenseTab = chD;
+
+    if(el(tblId)){
+      document.querySelector('#'+tblId+' tbody').innerHTML = stats.map(s=>`
+        <tr><td>${s.ambulance}</td><td class="num">${s.nbReferences}</td><td class="num">${PCT(s.taux)}</td><td class="num">${money(s.depenseAttribuable)}</td></tr>
+      `).join('');
+    }
+  }
+
+  // Répartition des dépenses par grande catégorie (Ambulances / Salaires / Primes /
+  // Frais corporate), affectée à chaque commune au prorata de la somme des coefficients
+  // de sollicitation de ses centres (donc de leur part de références ambulancières).
+  function renderChartDepCategorieCommune(d, dashboard){
+    if(!el('chartDepCategorieCommune')) return;
+    const communes = d.communes || [];
+    const byCat = (d.depensesRH && d.depensesRH.byCategorie) || {};
+    const totalDepAmb = (d.depensesAmbulances && d.depensesAmbulances.total) || 0;
+    const categories = [
+      { key:'Ambulances', total: totalDepAmb },
+      { key:'Salaires', total: byCat['Salaire'] || 0 },
+      { key:'Primes', total: byCat['Prime'] || 0 },
+      { key:'Frais corporate', total: byCat['Frais corporate'] || 0 }
+    ];
+    const coefByCommune = {};
+    communes.forEach(c=>{
+      coefByCommune[c] = dashboard.byCentre.filter(r=>r.commune===c).reduce((s,r)=>s+r.coefficient,0);
+    });
+    const colors = ['#166a79','#d99a2b','#2f8f5b'];
+    const datasets = communes.map((c,idx)=>({
+      label: c, backgroundColor: colors[idx % colors.length],
+      data: categories.map(cat => cat.total * (coefByCommune[c]||0))
+    }));
+    if(chartDepCategorieCommune) chartDepCategorieCommune.destroy();
+    chartDepCategorieCommune = new Chart(el('chartDepCategorieCommune').getContext('2d'), {
+      type:'bar',
+      data:{ labels: categories.map(c=>c.key), datasets },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'bottom'} },
+        scales:{ x:{ stacked:true }, y:{ stacked:true, ticks:{ callback:v=>FCFA(v) } } } }
+    });
+  }
+
+  // Comparaison, pour chaque centre, entre sa dépense affectée (coefficient de
+  // sollicitation × dépenses globales) et son versement 3% réellement enregistré.
+  function renderChartCentreComparaison(dashboard){
+    if(!el('chartCentreComparaison')) return;
+    const rows = [...dashboard.byCentre].sort((a,b)=> (a.commune+a.nom).localeCompare(b.commune+b.nom, 'fr'));
+    const wrap = el('chartCentreComparaison').parentElement;
+    wrap.style.height = Math.max(320, 34*rows.length + 60) + 'px';
+    if(chartCentreComparaison) chartCentreComparaison.destroy();
+    chartCentreComparaison = new Chart(el('chartCentreComparaison').getContext('2d'), {
+      type:'bar',
+      data:{ labels: rows.map(r=>r.nom + ' (' + r.commune + ')'), datasets:[
+        { label:'Dépense affectée', data: rows.map(r=>r.depenseEstimee), backgroundColor:'#166a79', borderRadius:3 },
+        { label:'Versé (3%)', data: rows.map(r=>r.verse), backgroundColor:'#d99a2b', borderRadius:3 }
+      ]},
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'bottom'} },
+        scales:{ x:{ ticks:{ callback:v=>FCFA(v) } } } }
+    });
+  }
 
   function renderKpis(d){
     const cards = [
@@ -2328,23 +2521,31 @@ form#survey-form {margin-top:36px;}
       const totRecette = rows.reduce((s,r)=>s+r.recette,0), totAttendu = rows.reduce((s,r)=>s+r.attendu,0);
       const totVerse = rows.reduce((s,r)=>s+r.verse,0), totCoef = rows.reduce((s,r)=>s+r.coefficient,0);
       const totDep = rows.reduce((s,r)=>s+r.depenseEstimee,0);
-      return `<table style="margin-bottom:18px;">
+      const totAmb = rows.reduce((s,r)=>s+(r.ambAffecte||0),0), totSal = rows.reduce((s,r)=>s+(r.salaireAffecte||0),0);
+      const totPrime = rows.reduce((s,r)=>s+(r.primeAffecte||0),0), totFrais = rows.reduce((s,r)=>s+(r.fraisAffecte||0),0);
+      return `<div class="table-scroll"><table style="margin-bottom:18px;">
         <thead>
-          <tr class="commune-head"><td colspan="9">Commune : ${commune}</td></tr>
+          <tr class="commune-head"><td colspan="13">Commune : ${commune}</td></tr>
           <tr><th>Centre</th><th class="num">Recette</th><th class="num">3% attendu</th><th class="num">Versé</th>
-              <th class="num">Écart</th><th class="num">Taux versement</th><th class="num">Coef. sollicitation</th><th class="num">Dépense estimée</th><th>Approbation 3%</th></tr>
+              <th class="num">Écart</th><th class="num">Taux versement</th><th class="num">Coef. sollicitation</th><th class="num">Dépense estimée</th>
+              <th class="num">dont Ambulances</th><th class="num">dont Salaires</th><th class="num">dont Primes</th><th class="num">dont Frais corp.</th>
+              <th>Approbation 3%</th></tr>
         </thead>
         <tbody>
           ${rows.map(r=>`<tr><td>${r.nom}</td><td class="num">${money(r.recette)}</td><td class="num">${money(r.attendu)}</td>
             <td class="num">${money(r.verse)}</td><td class="num">${money(r.ecart)}</td><td class="num">${PCT(r.taux)}</td>
             <td class="num">${PCT(r.coefficient)}</td><td class="num">${money(r.depenseEstimee)}</td>
+            <td class="num">${money(r.ambAffecte)}</td><td class="num">${money(r.salaireAffecte)}</td>
+            <td class="num">${money(r.primeAffecte)}</td><td class="num">${money(r.fraisAffecte)}</td>
             <td>${badgeCE(statutCECentre(r.nom, commune))}</td></tr>`).join('')}
           <tr class="total-row"><td>TOTAL ${commune.toUpperCase()}</td><td class="num">${money(totRecette)}</td>
             <td class="num">${money(totAttendu)}</td><td class="num">${money(totVerse)}</td>
             <td class="num">${money(totAttendu-totVerse)}</td><td class="num">${PCT(totAttendu>0?totVerse/totAttendu:0)}</td>
-            <td class="num">${PCT(totCoef)}</td><td class="num">${money(totDep)}</td><td></td></tr>
+            <td class="num">${PCT(totCoef)}</td><td class="num">${money(totDep)}</td>
+            <td class="num">${money(totAmb)}</td><td class="num">${money(totSal)}</td>
+            <td class="num">${money(totPrime)}</td><td class="num">${money(totFrais)}</td><td></td></tr>
         </tbody>
-      </table>`;
+      </table></div>`;
     }).join('');
   }
 
@@ -2406,11 +2607,19 @@ form#survey-form {margin-top:36px;}
       const ambRef = refAmb.find(a=>a.nom===nom && a.commune===commune);
       const coefficient = ambRef ? (ambRef.coefficient || 0) : 0;
       const depenseEstimee = coefficient * totalDep;
+      // Affectation de chaque grande catégorie de dépense à ce centre, au prorata de
+      // son coefficient de sollicitation (part des références ambulancières qu'il a générées).
+      const byCat = (d.depensesRH && d.depensesRH.byCategorie) || {};
+      const ambAffecte = coefficient * totalDepAmb;
+      const salaireAffecte = coefficient * (byCat['Salaire'] || 0);
+      const primeAffecte = coefficient * (byCat['Prime'] || 0);
+      const fraisAffecte = coefficient * (byCat['Frais corporate'] || 0);
       return {
         nom, commune, recette, attendu, verse,
         ecart: attendu - verse,
         taux: attendu > 0 ? verse / attendu : 0,
-        coefficient, depenseEstimee
+        coefficient, depenseEstimee,
+        ambAffecte, salaireAffecte, primeAffecte, fraisAffecte
       };
     });
 
@@ -2432,6 +2641,9 @@ form#survey-form {margin-top:36px;}
     renderKpis(dashboard); renderChartCommune(dashboard.byCommune); renderChartDepenses(dashboard);
     renderByCentre(dashboard.byCentre, d.communes || dashboard.byCommune.map(c=>c.commune)); renderTauxNecessaire(dashboard);
     renderDashSatKpis(d);
+    renderAmbulanceExploitation(d, '');
+    renderChartDepCategorieCommune(d, dashboard);
+    renderChartCentreComparaison(dashboard);
   }
 
   // Petit résumé de satisfaction affiché directement dans l'onglet Tableau de bord,
@@ -2615,12 +2827,19 @@ form#survey-form {margin-top:36px;}
   el('formDepAmb').addEventListener('submit', async e=>{
     e.preventDefault();
     const fd = new FormData(e.target); const btn = e.target.querySelector('button[type=submit]');
+    const date = fd.get('date'), libelle = (fd.get('libelle')||'').trim(), montant = fd.get('montant');
+    if(!date || !libelle || montant === '' || montant === null){
+      showBanner('Veuillez renseigner la date, le libellé et le montant avant d\'ajouter la dépense.', 'error');
+      return;
+    }
     btn.disabled = true; btn.textContent = 'Ajout...';
     try{
-      const res = await apiPost('addDepenseAmbulance', { date: fd.get('date'), libelle: fd.get('libelle'), montant: fd.get('montant') });
-      STATE.data = res.data; renderAll(); e.target.reset();
+      const res = await apiPost('addDepenseAmbulance', { date, libelle, montant });
+      STATE.data = res.data;
+      e.target.reset();
       showBanner('Dépense ajoutée.', 'info'); setTimeout(hideBanner, 2000);
-    }catch(err){ showBanner("Échec de l'ajout : " + err.message, 'error'); }
+      try{ renderAll(); }catch(renderErr){ console.error('Erreur d\'affichage après ajout :', renderErr); }
+    }catch(err){ console.error(err); showBanner("Échec de l'ajout : " + err.message, 'error'); }
     finally{ btn.disabled = false; btn.textContent = 'Ajouter la dépense'; }
   });
 
@@ -2678,12 +2897,19 @@ form#survey-form {margin-top:36px;}
   el('formDepRH').addEventListener('submit', async e=>{
     e.preventDefault();
     const fd = new FormData(e.target); const btn = e.target.querySelector('button[type=submit]');
+    const date = fd.get('date'), libelle = (fd.get('libelle')||'').trim(), categorie = fd.get('categorie'), montant = fd.get('montant');
+    if(!date || !libelle || !categorie || montant === '' || montant === null){
+      showBanner('Veuillez renseigner la date, le libellé, la catégorie et le montant avant d\'ajouter la dépense.', 'error');
+      return;
+    }
     btn.disabled = true; btn.textContent = 'Ajout...';
     try{
-      const res = await apiPost('addDepenseRH', { date: fd.get('date'), libelle: fd.get('libelle'), categorie: fd.get('categorie'), montant: fd.get('montant') });
-      STATE.data = res.data; renderAll(); e.target.reset();
+      const res = await apiPost('addDepenseRH', { date, libelle, categorie, montant });
+      STATE.data = res.data;
+      e.target.reset();
       showBanner('Dépense ajoutée.', 'info'); setTimeout(hideBanner, 2000);
-    }catch(err){ showBanner("Échec de l'ajout : " + err.message, 'error'); }
+      try{ renderAll(); }catch(renderErr){ console.error('Erreur d\'affichage après ajout :', renderErr); }
+    }catch(err){ console.error(err); showBanner("Échec de l'ajout : " + err.message, 'error'); }
     finally{ btn.disabled = false; btn.textContent = 'Ajouter la dépense'; }
   });
 
@@ -3032,53 +3258,94 @@ form#survey-form {margin-top:36px;}
   // de performance par structure, regroupées par commune. ----
   const EVALREF_HEALTH_CENTERS = [
     {commune:"Abomey", arrondissement:"Agbokpa", centre:"CS Agbokpa"},
-    {commune:"Abomey", arrondissement:"Detohou centre", centre:"CS Detohou"},
-    {commune:"Abomey", arrondissement:"Detohou centre", centre:"CS Tangandji"},
-    {commune:"Abomey", arrondissement:"Djegbe", centre:"CS Djegbe (Abomey)"},
+    {commune:"Abomey", arrondissement:"Detohou Centre", centre:"CS Detohou"},
+    {commune:"Abomey", arrondissement:"Detohou Centre", centre:"CS Tangandji"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"CS Djegbe"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"Centre Humanitaire Chiara Luce Badaro"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"Csi Tout Est Grace"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"Cabinet De Soins 'Ste Lisette'"},
+    {commune:"Abomey", arrondissement:"Djegbe", centre:"Cabinet Medical' Saint Simon-Pierre'"},
+    {commune:"Abomey", arrondissement:"Goho", centre:"Cabinet Génycologique Dr Hans"},
     {commune:"Abomey", arrondissement:"Hounli", centre:"CS Hounli"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Cab De Soins Maranatha"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Centre De Sante Humanitaire ' Sante Pour Tous'"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Csi Saint Enfant Jesus"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Dieu Est Grand"},
+    {commune:"Abomey", arrondissement:"Hounli", centre:"Clinique D'Accouchement Eutocique La Main De Dieu"},
+    {commune:"Abomey", arrondissement:"Lele", centre:"Clinique D'Accouchement Eutocique Sainte Marie Mahuena"},
+    {commune:"Abomey", arrondissement:"Sada", centre:"Clinique Medicale De Gynecologie 'Femme Epanouie De St Antoine"},
     {commune:"Abomey", arrondissement:"Sehoun", centre:"CS Sehoun"},
+    {commune:"Abomey", arrondissement:"Sehoun", centre:"Centre De Sante Humanitaire ' Sainte Marie'"},
     {commune:"Abomey", arrondissement:"Vidole", centre:"CS Adandokpodji"},
     {commune:"Abomey", arrondissement:"Vidole", centre:"CS Vidole"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Csi La Sante Pour Tous"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Clinique Medical Oumar De Zongo"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Csi Sedami"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Cabinet De Soins Infirmiers Miwagan"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Clinique Ste Denise"},
+    {commune:"Abomey", arrondissement:"Vidole", centre:"Csi Miwagan"},
     {commune:"Abomey", arrondissement:"Zounzounme", centre:"CS Zounzonme"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Adanhondjigon", centre:"CS Adanhondjigon"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Adingningon", centre:"CS Adingnigon"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Agbangnizoun", centre:"CS Agbangnizoun"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Agbangnizoun", centre:"Csi La Lumiere"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Agbangnizoun", centre:"Csi Sante Pour Tous"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Agbangnizoun", centre:"Csi ' Azontchegbo'"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Kinta", centre:"CS Kinta"},
-    {commune:"Agbangnizoun (Com)", arrondissement:"Kpota", centre:"CS AKODEBAKOU"},
-    {commune:"Agbangnizoun (Com)", arrondissement:"Kpota", centre:"MI Sinwe-Kpota"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Kpota", centre:"CS Akodébakou"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Kpota", centre:"CS Sinwe-Kpota"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Lissazounme", centre:"CS Lissazounme"},
-    {commune:"Agbangnizoun (Com)", arrondissement:"Sahe", centre:"CS DOVOTA"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Lissazounme", centre:"Dispensaire Saint Camille"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Sahe", centre:"CS Dovota"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Sahe", centre:"CS Sahè"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Sinwe", centre:"CS Sinwe"},
+    {commune:"Agbangnizoun (Com)", arrondissement:"Sinwe", centre:"Clinique ' Tout Est Grace De Sinwe Lego '"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Tanvè", centre:"CS Tanve"},
     {commune:"Agbangnizoun (Com)", arrondissement:"Zoungoudo", centre:"CS Kpoto"},
     {commune:"Djidja (Com)", arrondissement:"Agondji", centre:"CS Agondji"},
     {commune:"Djidja (Com)", arrondissement:"Agouna", centre:"CS Agouna"},
     {commune:"Djidja (Com)", arrondissement:"Dan", centre:"CS Dan"},
-    {commune:"Djidja (Com)", arrondissement:"Djidja centre", centre:"CS Djidja"},
+    {commune:"Djidja (Com)", arrondissement:"Dan", centre:"Clinique D'Accouchement Eutocique Fifame"},
+    {commune:"Djidja (Com)", arrondissement:"Dan (Dridji)", centre:"Cabinet De Soins Infirmiers Sainte Marie De Nazareth"},
+    {commune:"Djidja (Com)", arrondissement:"Djidja", centre:"Cabinet De Soins Infirmiers La Sante De Djidja"},
+    {commune:"Djidja (Com)", arrondissement:"Djidja Centre", centre:"CS Djidja"},
     {commune:"Djidja (Com)", arrondissement:"Dohouime", centre:"CS Dohouime"},
+    {commune:"Djidja (Com)", arrondissement:"Gbihoungon", centre:"Csi Azontchehoue"},
     {commune:"Djidja (Com)", arrondissement:"Gobaix", centre:"CS Gobaix"},
+    {commune:"Djidja (Com)", arrondissement:"Gounnoukoui", centre:"Clinique D'Accouchement Eutocique La Fontaine"},
     {commune:"Djidja (Com)", arrondissement:"Houto", centre:"CS Outo"},
     {commune:"Djidja (Com)", arrondissement:"Monsourou", centre:"CS Lobeta"},
     {commune:"Djidja (Com)", arrondissement:"Monsourou", centre:"CS Monsourou"},
+    {commune:"Djidja (Com)", arrondissement:"Monsourou", centre:"Csi St Paul"},
     {commune:"Djidja (Com)", arrondissement:"Mougnon", centre:"CS Mougnon"},
-    {commune:"Djidja (Com)", arrondissement:"Mougnon", centre:"HZ Djidja"},
     {commune:"Djidja (Com)", arrondissement:"Oungbegame", centre:"CS Oumgbega"},
     {commune:"Djidja (Com)", arrondissement:"Setto", centre:"CS Saloudji"},
     {commune:"Djidja (Com)", arrondissement:"Setto", centre:"CS Setto"},
+    {commune:"Djidja (Com)", arrondissement:"Setto", centre:"Cabinet De Soins Infirmiers Saint Jonas"},
+    {commune:"Djidja (Com)", arrondissement:"Setto", centre:"Csi Sante Pourtous"},
+    {commune:"Djidja (Com)", arrondissement:"Toweta", centre:"Csi Jean Paul Ii"},
+    {commune:"Djidja (Com)", arrondissement:"Zinkanme", centre:"Clinique D'Accouchement Eutocique Mawudeme"},
     {commune:"Djidja (Com)", arrondissement:"Zounkon", centre:"CS Ayogbé"}
   ];
   function evalRefSlug(s){
     return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
       .toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
   }
+  // Aligne le libellé de commune utilisé dans EVALREF_HEALTH_CENTERS (ex. "Agbangnizoun (Com)")
+  // sur les valeurs ("abomey"/"agbangnizoun"/"djidja") de la liste de choix "Commune" déjà
+  // utilisée ailleurs dans le formulaire, pour pouvoir filtrer "formations_zone" par commune.
+  function evalRefCommuneFilterSlug(commune){
+    return evalRefSlug(String(commune).replace(/\s*\(Com\)\s*$/,''));
+  }
   const EVALREF_CENTRE_TO_COMMUNE = {};
   (function buildFormationsZoneChoices(){
     const list = EVALREF_HEALTH_CENTERS.map(c=>{
       const slug = evalRefSlug(c.centre);
       EVALREF_CENTRE_TO_COMMUNE[slug] = { commune: c.commune, label: c.centre };
-      return { list_name:'formations_zone', name: slug, label: c.centre };
+      return { list_name:'formations_zone', name: slug, label: c.centre, Commune: evalRefCommuneFilterSlug(c.commune) };
     });
+    // "Autres" reste toujours proposé, quelle que soit la commune choisie (voir la règle
+    // dans evalRefFilterChoices : une valeur de filtre absente/null n'est jamais exclue).
     list.push({ list_name:'formations_zone', name:'autres', label:'Autres (préciser)' });
     evalRefChoicesByList['formations_zone'] = list;
   })();
@@ -3149,7 +3416,9 @@ form#survey-form {margin-top:36px;}
       if (m){
         const col = m[1], dep = m[2];
         const depVal = evalRefGetVal(dep);
-        list = list.filter(c => c[col] === depVal);
+        // Une entrée sans valeur pour la colonne filtrée (ex. "Autres (préciser)") reste
+        // toujours visible, quelle que soit la valeur du champ dont on dépend.
+        list = list.filter(c => c[col] == null || c[col] === depVal);
       }
     }
     return list;
@@ -3822,6 +4091,7 @@ form#survey-form {margin-top:36px;}
       renderDashboard(d);
       renderAmbulances(d.refAmbulances); renderDepAmb(d.depensesAmbulances); renderDepRH(d.depensesRH);
       renderRecettes(); renderContreEval(); renderSatisfaction(d); renderEvalRefAnalyseAll(d); renderUsers(d.users);
+      renderAmbulanceExploitation(d, 'Tab');
     } else if(role === 'gestionnaire'){
       renderDashboard(d);
       renderDepAmb(d.depensesAmbulances); renderDepRH(d.depensesRH);
@@ -3829,9 +4099,12 @@ form#survey-form {margin-top:36px;}
     } else if(role === 'agent_collecte'){
       renderAmbulancesAgent(d.refAmbulances, d.communes); renderRecettes();
     } else if(role === 'consultation'){
+      // Compte public en lecture seule : mêmes vues que l'administrateur, sans la
+      // gestion des comptes utilisateurs et sans aucune action d'écriture.
       renderDashboard(d);
-      renderSatisfaction(d);
-      renderEvalRefAnalyseAll(d);
+      renderAmbulances(d.refAmbulances); renderDepAmb(d.depensesAmbulances); renderDepRH(d.depensesRH);
+      renderRecettes(); renderContreEval(); renderSatisfaction(d); renderEvalRefAnalyseAll(d);
+      renderAmbulanceExploitation(d, 'Tab');
     }
   }
 

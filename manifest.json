@@ -1,20 +1,13 @@
 {
   "name": "Financement du Système de Référence — ZS-DAA",
-  "short_name": "Suivi Réf DAA",
-  "start_url": ".",
+  "short_name": "Suivi-Ref-DAA",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#f6f8f7",
-  "theme_color": "#0e3d44",
+  "background_color": "#0b2545",
+  "theme_color": "#0b2545",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
   ]
 }
