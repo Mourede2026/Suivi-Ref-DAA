@@ -1053,9 +1053,6 @@ form#survey-form {margin-top:36px;}
 #view-evalRef .opt-pill input:checked + label .dot::after {transform:scale(1);}
 #view-evalRef .opt-pill input:focus-visible + label {outline:2px solid var(--teal); outline-offset:2px;}
 #view-evalRef .opt-pill label:hover {border-color:var(--teal);}
-#view-evalRef .opt-pill-locked {opacity:.5;}
-#view-evalRef .opt-pill-locked label {cursor:not-allowed;}
-#view-evalRef .opt-pill-locked label:hover {border-color:var(--line);}
 #view-evalRef input[type=text], #view-evalRef input[type=number], #view-evalRef input[type=date], #view-evalRef input[type=time], #view-evalRef textarea, #view-evalRef select.field-select {
   width:100%;
   border:1px solid var(--line);
@@ -3664,20 +3661,6 @@ form#survey-form {margin-top:36px;}
   const evalRefFormEl = document.getElementById('evalRefSurveyForm');
   evalRefRenderNode(evalRefTree, evalRefFormEl, 0);
 
-  // Petite note explicative, ajoutée une seule fois, sous la question "Parties du
-  // Support disponibles" : la case "Partie CONTRE-REFERENCE" est verrouillée tant
-  // que la fiche de référence n'est pas entièrement remplie (voir evalRefRefreshContreRefLock).
-  (function addContreRefLockHint(){
-    const input = evalRefFormEl.querySelector('input[name="Parties_du_Support_disponibles"][value="partie_contre_reference"]');
-    const fieldBox = input ? input.closest('.field') : null;
-    if (fieldBox && !fieldBox.querySelector('.contreref-lock-hint')){
-      const hint = document.createElement('div');
-      hint.className = 'hint contreref-lock-hint';
-      hint.textContent = "La partie CONTRE-RÉFÉRENCE se débloque une fois la fiche de référence entièrement remplie.";
-      fieldBox.appendChild(hint);
-    }
-  })();
-
   // fix top-group numbering properly (I, II, III...)
   const evalRefTopGroups = evalRefRegistry.filter(r => r.kind === 'top');
   const evalRefRomans = ['I','II','III','IV','V','VI'];
@@ -3691,46 +3674,6 @@ form#survey-form {margin-top:36px;}
   const evalRefIntroRow = evalRefSurveyRows.find(r => r.type === 'note');
   if (evalRefIntroRow){
     document.getElementById('evalRefIntroNote').innerHTML = '<strong>Consigne</strong>' + evalRefIntroRow.label;
-  }
-
-  // ---- Verrouillage de "Partie CONTRE-REFERENCE" tant que la fiche de référence
-  // n'est pas entièrement remplie ----
-  // Un champ compte comme "de la partie référence" s'il est physiquement dans le
-  // bloc DOM du groupe group_hk51e79 (top-group.group-ref).
-  function evalRefIsReferencePartComplete(){
-    const refSection = document.querySelector('#view-evalRef .top-group.group-ref');
-    if (!refSection) return false;
-    let missing = 0;
-    evalRefRegistry.forEach(item => {
-      if (item.kind !== 'field') return;
-      if (item.row.type === 'note') return;
-      if (item.row.required !== 'true') return;
-      if (!refSection.contains(item.el)) return;
-      if (item.el.classList.contains('hidden')) return;
-      const v = evalRefAnswers[item.row.name];
-      const filled = Array.isArray(v) ? v.length > 0 : (v !== undefined && v !== '');
-      if (!filled) missing++;
-    });
-    return missing === 0;
-  }
-
-  // Retourne true si l'état a changé (la case a dû être décochée), pour permettre
-  // à l'appelant de relancer une passe de rafraîchissement si nécessaire.
-  function evalRefRefreshContreRefLock(){
-    const input = document.querySelector('#view-evalRef input[name="Parties_du_Support_disponibles"][value="partie_contre_reference"]');
-    if (!input) return false;
-    const pill = input.closest('.opt-pill');
-    const unlocked = evalRefIsReferencePartComplete();
-    input.disabled = !unlocked;
-    if (pill) pill.classList.toggle('opt-pill-locked', !unlocked);
-    if (!unlocked && input.checked){
-      input.checked = false;
-      const arr = (Array.isArray(evalRefAnswers['Parties_du_Support_disponibles']) ? evalRefAnswers['Parties_du_Support_disponibles'] : [])
-        .filter(v => v !== 'partie_contre_reference');
-      evalRefAnswers['Parties_du_Support_disponibles'] = arr;
-      return true;
-    }
-    return false;
   }
 
   // ---- Visibility engine ----
@@ -3758,22 +3701,9 @@ form#survey-form {margin-top:36px;}
         }
         const relevant = evalRefEvalExpr(item.row.relevant);
         item.el.classList.toggle('hidden', !relevant);
-        // Un champ masqué garde sa réponse en mémoire tant qu'on ne la vide pas
-        // explicitement — un champ qui en dépend (ex. "Préciser le centre" quand la
-        // réponse est "Autres") resterait alors affiché à tort si l'utilisateur
-        // change d'avis en amont (ex. il repasse "Formation sanitaire précisée ?"
-        // de Oui à Non après avoir choisi "Autres"). On efface donc la réponse et
-        // on réinitialise les contrôles dès qu'un champ redevient non pertinent.
-        if (!relevant && item.kind === 'field' && evalRefAnswers[item.row.name] !== undefined){
-          delete evalRefAnswers[item.row.name];
-          item.el.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(el => el.checked = false);
-          item.el.querySelectorAll('input[type=text], input[type=number], input[type=date], input[type=time], textarea').forEach(el => el.value = '');
-          item.el.querySelectorAll('select.field-select').forEach(el => el.selectedIndex = 0);
-        }
       });
     }
     evalRefUpdateProgress();
-    if (evalRefRefreshContreRefLock()) evalRefRefreshVisibility();
   }
 
   function evalRefUpdateProgress(){
