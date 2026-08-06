@@ -1053,7 +1053,7 @@ form#survey-form {margin-top:36px;}
 #view-evalRef .opt-pill input:checked + label .dot::after {transform:scale(1);}
 #view-evalRef .opt-pill input:focus-visible + label {outline:2px solid var(--teal); outline-offset:2px;}
 #view-evalRef .opt-pill label:hover {border-color:var(--teal);}
-#view-evalRef input[type=text], #view-evalRef input[type=number], #view-evalRef input[type=date], #view-evalRef input[type=time], #view-evalRef textarea {
+#view-evalRef input[type=text], #view-evalRef input[type=number], #view-evalRef input[type=date], #view-evalRef input[type=time], #view-evalRef textarea, #view-evalRef select.field-select {
   width:100%;
   border:1px solid var(--line);
   background:#fbfcfb;
@@ -1063,6 +1063,10 @@ form#survey-form {margin-top:36px;}
   font-size:14.5px;
   color:var(--ink);
   transition:border-color .15s ease, box-shadow .15s ease;
+}
+#view-evalRef select.field-select { appearance:auto; cursor:pointer; }
+#view-evalRef select.field-select:focus {
+  outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(14,107,98,.12);
 }
 #view-evalRef input:focus, #view-evalRef textarea:focus {
   outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(14,107,98,.12);
@@ -1802,7 +1806,7 @@ form#survey-form {margin-top:36px;}
   // Partagé par l'application principale ET les formulaires
   // de satisfaction publics ci-dessous.
   // =========================================================
-  const API_URL = "https://script.google.com/macros/s/AKfycbz-3wXGxa0T1HocXxVUoVXVPrbZFyCeZoyk0Xj5nzylXox5ZJYUbUlVIdseEY5HnOF6Pw/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbz4ygXruuOSXGsZjGDlvOMFQ0xB8Jlj2KIPsfZCblWXBDFCmgOZN0cVk-76IeyKYM2fVA/exec";
 </script>
 
 <!-- Script du formulaire public : questionnaire chefs de poste -->
@@ -3429,10 +3433,48 @@ form#survey-form {margin-top:36px;}
   let evalRefUidCounter = 0;
   function evalRefUid(){ return 'f' + (evalRefUidCounter++); }
 
+  // Au-delà de ce nombre d'options, une question à choix unique se rend en liste
+  // déroulante native (<select>) plutôt qu'en pastilles radio, pour rester utilisable
+  // (cas typique : la liste des 69 formations sanitaires "Formation sanitaire de provenance").
+  const EVALREF_SELECT_THRESHOLD = 8;
+
   function evalRefRenderOptions(row, kind){
+    const list = evalRefFilterChoices(row);
+
+    if (kind === 'one' && list.length > EVALREF_SELECT_THRESHOLD){
+      const wrap = document.createElement('div');
+      wrap.className = 'options options-select';
+      const select = document.createElement('select');
+      select.className = 'field-select';
+      select.name = row.name;
+      const current = evalRefGetVal(row.name);
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '— Choisir —';
+      placeholder.disabled = true;
+      placeholder.selected = !current;
+      select.appendChild(placeholder);
+
+      list.forEach(choice => {
+        const opt = document.createElement('option');
+        opt.value = choice.name;
+        opt.textContent = choice.label;
+        if (choice.name === current) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      select.addEventListener('change', () => {
+        evalRefAnswers[row.name] = select.value;
+        evalRefRefreshVisibility();
+      });
+
+      wrap.appendChild(select);
+      return wrap;
+    }
+
     const wrap = document.createElement('div');
     wrap.className = 'options';
-    const list = evalRefFilterChoices(row);
     const inputType = kind === 'multiple' ? 'checkbox' : 'radio';
     list.forEach(choice => {
       const id = evalRefUid();
@@ -3739,6 +3781,7 @@ form#survey-form {margin-top:36px;}
     Object.keys(evalRefAnswers).forEach(k => delete evalRefAnswers[k]);
     evalRefFormEl.querySelectorAll('input[type=text], input[type=number], input[type=date], input[type=time], textarea').forEach(el => el.value='');
     evalRefFormEl.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(el => el.checked=false);
+    evalRefFormEl.querySelectorAll('select.field-select').forEach(el => el.selectedIndex = 0);
     document.getElementById('evalRefSummary').classList.remove('show');
     evalRefRefreshVisibility();
     window.scrollTo({top:0, behavior:'smooth'});
@@ -3814,6 +3857,7 @@ form#survey-form {margin-top:36px;}
       Object.keys(evalRefAnswers).forEach(k => delete evalRefAnswers[k]);
       evalRefFormEl.querySelectorAll('input[type=text], input[type=number], input[type=date], input[type=time], textarea').forEach(node => node.value = '');
       evalRefFormEl.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(node => node.checked = false);
+      evalRefFormEl.querySelectorAll('select.field-select').forEach(node => node.selectedIndex = 0);
       document.getElementById('evalRefSummary').classList.remove('show');
       evalRefRefreshVisibility();
       window.scrollTo({ top:0, behavior:'smooth' });
